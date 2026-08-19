@@ -567,6 +567,37 @@ input[type="time"]::-webkit-calendar-picker-indicator{opacity:.5}
 .lb-meta .lb-num{font-family:Georgia,serif;font-size:19px;font-weight:700;color:var(--accent)}
 .lb-meta .lb-num.green{color:var(--green)}
 .lb-empty{padding:40px 20px;text-align:center;color:var(--ink2);font-size:14px}
+/* 灯箱内联编辑 */
+.lb-field,.lb-unit{cursor:text;border-bottom:1.5px dashed color-mix(in srgb, var(--accent) 55%, transparent);padding:0 2px;transition:background .15s}
+.lb-field:hover,.lb-unit:hover{background:var(--sel);border-radius:4px}
+.lb-inline{min-width:90px;max-width:130px;display:inline-block;padding:5px 9px;font-size:15px;border-radius:8px;margin:0 2px;text-align:center}
+.lb-edit-row{display:flex;align-items:baseline;gap:6px;margin-top:14px;padding-top:12px;border-top:1px solid var(--line);font-family:Georgia,serif}
+.lb-edit-row .lb-field{font-size:19px;font-weight:700;color:var(--accent)}
+.lb-edit-row .lb-slash{color:var(--ink2);font-size:15px}
+.lb-edit-row .lb-unit{font-size:13px;color:var(--ink2)}
+.lb-edit-row .lb-pct{margin-left:auto;font-size:15px;font-weight:700;color:var(--ink)}
+.lb-tip{margin-top:10px;font-size:11.5px;color:var(--ink2);letter-spacing:.08em}
+/* 文字卡编辑弹层 */
+.card-edit{
+  position:fixed;inset:0;z-index:115;
+  background:rgba(18,14,10,.6);
+  -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+  display:flex;align-items:center;justify-content:center;padding:26px;
+}
+.card-edit[hidden]{display:none}
+.ce-box{
+  width:100%;max-width:360px;background:var(--card);border-radius:16px;
+  padding:20px;box-shadow:0 24px 60px rgba(0,0,0,.4);
+  animation:ceIn .22s cubic-bezier(.22,.8,.3,1) both;
+}
+@keyframes ceIn{from{opacity:0;transform:scale(.95) translateY(8px)}to{opacity:1;transform:none}}
+.ce-title{font-family:Georgia,"Songti SC",serif;font-size:17px;font-weight:700;margin-bottom:12px}
+.ce-box textarea{min-height:64px;line-height:1.6;font-size:15px;resize:vertical;margin-bottom:10px}
+.ce-box .ei-grid{margin-bottom:12px}
+.ce-box .btn-row{display:flex;gap:9px}
+.ce-box .btn{min-height:44px;font-size:14.5px}
+/* 添加文字卡的虚线 tile */
+.tile-addcard .tile-text{border-style:dashed !important;color:var(--ink2) !important;background:var(--card2) !important;font-size:14.5px;line-height:1.9;cursor:pointer}
 .lb-close{
   position:absolute;top:16px;right:16px;width:46px;height:46px;border-radius:50%;
   background:rgba(255,255,255,.16);color:#fff;font-size:20px;z-index:3;
@@ -710,7 +741,7 @@ input[type="time"]::-webkit-calendar-picker-indicator{opacity:.5}
 
     <!-- ===== Tab5 设置 ===== -->
     <section class="view" id="view-settings">
-      <div class="view-head"><h2>设置与编辑</h2><span class="view-sub">改名字 · 换照片 · 备份数据</span></div>
+      <div class="view-head"><h2>设置与编辑</h2><span class="view-sub">名字 · 主题 · 云同步 · 备份</span></div>
 
       <section class="set-sec">
         <h4>大字年份（背景主标题）</h4>
@@ -727,17 +758,6 @@ input[type="time"]::-webkit-calendar-picker-indicator{opacity:.5}
           <button type="button" class="theme-opt" data-t="light" onclick="DB.pickTheme('light')">日间</button>
           <button type="button" class="theme-opt" data-t="dark" onclick="DB.pickTheme('dark')">夜间</button>
         </div>
-      </section>
-      <section class="set-sec">
-        <h4>愿景卡（可上传自己的照片）</h4>
-        <div id="fDreams"></div>
-        <p class="set-cap">照片会自动压缩到 800px 存本机（每张卡最多 9 张）。双击卡片图片也可加图；在灯箱里左右滑动查看，点 ✕ 删除单张。</p>
-      </section>
-      <section class="set-sec">
-        <h4>文字卡（穿插在拼贴里的大字）</h4>
-        <div id="fCards"></div>
-        <button type="button" class="btn" style="width:100%;min-height:44px;font-size:14px;background:var(--card2);border:1px dashed var(--line2);color:var(--ink2)" onclick="DB.addCard()">＋ 添加一张文字卡</button>
-        <p class="set-cap">英文短句最有拼贴感，中文也支持。颜色影响文字与边框色调。</p>
       </section>
       <section class="set-sec">
         <h4>年度目标</h4>
@@ -837,6 +857,33 @@ input[type="time"]::-webkit-calendar-picker-indicator{opacity:.5}
     <div class="lb-body" id="lbBody"></div>
   </div>
   <p class="lb-hint" id="lbHint">左右滑动切换 · 点空白关闭</p>
+</div>
+
+<div class="card-edit" id="cardEdit" hidden onclick="if(event.target===this)DB.closeCardEdit()">
+  <div class="ce-box">
+    <div class="ce-title">编辑文字卡</div>
+    <textarea id="ceText" placeholder="文字内容，如：make it happen"></textarea>
+    <div class="ei-grid">
+      <select id="ceSize">
+        <option value="normal">普通 17</option>
+        <option value="big">大字 24</option>
+        <option value="year">年份 42</option>
+      </select>
+      <select id="ceColor">
+        <option value="accent">陶土</option>
+        <option value="green">苔绿</option>
+        <option value="gold">金黄</option>
+        <option value="blue">雾蓝</option>
+        <option value="rose">粉</option>
+        <option value="ink">墨</option>
+      </select>
+    </div>
+    <div class="btn-row">
+      <button type="button" class="btn danger" onclick="DB.ceDelete()">删除</button>
+      <button type="button" class="btn" onclick="DB.closeCardEdit()">取消</button>
+      <button type="button" class="btn primary" onclick="DB.ceSave()">保存 ✦</button>
+    </div>
+  </div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -1080,8 +1127,8 @@ const AR_CYCLE = ["r3-4","r4-5","r1-1","r3-4","r2-3","r4-5","r1-1","r-tall","r3-
 function renderCollage(){
   const items = [];
   state.dreams.forEach((d,i)=>items.push({kind:"dream", data:d, di:i, arIdx:i}));
-  state.cards.forEach((c,i)=>items.push({kind:"card", data:c, arIdx:state.dreams.length + i}));
-  $("collage").innerHTML = items.map((it, idx) => {
+  state.cards.forEach((c,i)=>items.push({kind:"card", data:c, ci:i, arIdx:state.dreams.length + i}));
+  const html = items.map((it, idx) => {
     const arClass = AR_CYCLE[it.arIdx % AR_CYCLE.length];
     if(it.kind === "dream"){
       const d = it.data;
@@ -1115,9 +1162,14 @@ function renderCollage(){
       </div>`;
     }else{
       const c = it.data;
-      return `<div class="tile ${arClass}"><div class="tile-text size-${c.size||'normal'} c${c.color||'ink'}">${esc(c.text)}</div></div>`;
+      return `<div class="tile ${arClass}" data-ci="${it.ci}" ondblclick="DB.openCardEdit(${it.ci})" title="双击编辑">
+        <div class="tile-text size-${c.size||'normal'} c${c.color||'ink'}">${esc(c.text)}</div>
+      </div>`;
     }
-  }).join("");
+  }).join("") + `<div class="tile tile-addcard" onclick="DB.addCard()" title="添加一张文字卡">
+    <div class="tile-text size-normal cink">＋ 新文字卡<br><span style="font-size:11px;font-weight:400;letter-spacing:.05em">双击卡片可编辑</span></div>
+  </div>`;
+  $("collage").innerHTML = html;
 }
 let tileTapTimer = null;
 function tapTile(el){
@@ -1160,12 +1212,46 @@ function renderLightbox(){
     <button onclick="DB.uploadImg(${lbDi})">＋ 添加</button>
     ${total ? `<button class="danger" onclick="DB.lbRemoveImg(${lbIdx})">✕ 删除</button>` : ""}
   `;
-  // 信息条（名称/why/数字/进度）
+  // 信息条（名称/为什么/数字 全部可点击修改）
   const p = pct(d.cur, d.goal);
-  const num = d.unit === "%"
-    ? `<div class="lb-meta"><span>完成度</span><span class="lb-num ${p>=100?'green':''}">${p}%</span></div>`
-    : `<div class="lb-meta"><span>${esc(d.unit||"")}</span><span class="lb-num ${p>=100?'green':''}">${fmtNum(d.cur)} / ${fmtNum(d.goal)}</span></div>`;
-  $("lbBody").innerHTML = `<div class="lb-name">${esc(d.name)}</div><div class="lb-why">${esc(d.why) || "在设置里写下它为什么重要"}</div>${num}`;
+  const rowHtml = `<div class="lb-edit-row">
+      <span class="lb-field lb-field-cur" title="点击修改当前值" onclick="DB.lbEditField('cur')">${fmtNum(d.cur)}</span>
+      <span class="lb-slash">/</span>
+      <span class="lb-field lb-field-goal" title="点击修改目标" onclick="DB.lbEditField('goal')">${fmtNum(d.goal)}</span>
+      <span class="lb-unit" title="点击修改单位" onclick="DB.lbEditField('unit')">${esc(d.unit || "单位")}</span>
+      <span class="lb-pct">${p}%</span>
+    </div>`;
+  $("lbBody").innerHTML = `<div class="lb-name" title="点击修改名称" onclick="DB.lbEditField('name')">${esc(d.name)}</div>
+    <div class="lb-why" title="点击修改" onclick="DB.lbEditField('why')">${esc(d.why) || "（轻点写下它为什么重要）"}</div>
+    ${rowHtml}
+    <div class="lb-tip">轻点文字或数字即可修改 ✦</div>`;
+}
+function lbEditField(field){
+  const d = state.dreams[lbDi]; if(!d) return;
+  const sel = {name:".lb-name", why:".lb-why", cur:".lb-field-cur", goal:".lb-field-goal", unit:".lb-unit"}[field];
+  const host = $("lbBody").querySelector(sel);
+  if(!host) return;
+  const input = document.createElement("input");
+  if(field === "cur" || field === "goal"){ input.type = "number"; input.inputMode = "numeric"; }
+  input.value = (field === "cur" || field === "goal") ? d[field] : (d[field] || "");
+  input.className = "lb-inline";
+  input.placeholder = field === "unit" ? "单位(元/本/%)" : field === "why" ? "为什么重要" : field === "name" ? "愿景名" : "数字";
+  host.replaceWith(input);
+  input.focus(); input.select();
+  const commit = () => {
+    if(input.dataset.done) return;
+    input.dataset.done = "1";
+    const v = input.value;
+    if(field === "cur" || field === "goal") d[field] = parseFloat(v) || 0;
+    else d[field] = v.trim();
+    save(); renderAll(); renderLightbox();
+    toast("已更新 ✦");
+  };
+  input.onkeydown = e => {
+    if(e.key === "Enter") commit();
+    if(e.key === "Escape") renderLightbox();
+  };
+  input.onblur = commit;
 }
 function lbNav(delta){
   const total = lbImgs(lbDi).length; if(!total) return;
@@ -1533,35 +1619,6 @@ function buildEditForm(){
   $("fSyncToken").value = getSyncToken();
   if(getSyncPass()){ $("fSyncPass").value = getSyncPass(); $("fSyncRemember").checked = true; }
   renderSyncStatus();
-  $("fDreams").innerHTML = state.dreams.map((d,i)=>`
-    <div class="set-item" data-i="${i}">
-      <div class="ei-grid">
-        <input type="text" data-k="name" value="${esc(d.name)}" placeholder="愿景名">
-        <select data-k="icon">${iconOptions(d.icon)}</select>
-      </div>
-      <input type="text" data-k="why" value="${esc(d.why)}" placeholder="为什么重要（一句话）" style="margin-bottom:8px">
-      <div class="ei-grid3">
-        <input type="number" data-k="cur" value="${d.cur}" placeholder="当前">
-        <input type="number" data-k="goal" value="${d.goal}" placeholder="目标">
-        <input type="text" data-k="unit" value="${esc(d.unit)}" placeholder="单位">
-      </div>
-      <div class="img-actions">
-        <button type="button" class="mini accent" onclick="DB.uploadImg(${i})">＋ 添加照片</button>
-        ${(d.images && d.images.length) ? `<button type="button" class="mini" onclick="DB.removeImg(${i})">清除全部</button>` : ""}
-      </div>
-      ${(d.images && d.images.length) ? `<p style="font-size:12px;color:var(--ink2);margin-top:6px">📷 已上传 ${d.images.length} 张 · 在灯箱里可单张删除</p>` : ""}
-    </div>`).join("");
-  $("fCards").innerHTML = state.cards.map((c,i)=>`
-    <div class="set-item card-row" data-i="${i}">
-      <div style="flex:1;display:flex;flex-direction:column;gap:8px">
-        <input type="text" data-k="text" value="${esc(c.text)}" placeholder="文字卡内容">
-        <div class="ei-grid">
-          <select data-k="size">${SIZE_OPT.map(o=>`<option value="${o[0]}" ${o[0]===c.size?"selected":""}>${o[1]}</option>`).join("")}</select>
-          <select data-k="color">${COLOR_OPTS.map(o=>`<option value="${o[0]}" ${o[0]===c.color?"selected":""}>${o[1]}</option>`).join("")}</select>
-        </div>
-      </div>
-      <button type="button" class="mini del" onclick="DB.delCard(${i})">✕</button>
-    </div>`).join("");
   $("fGoals").innerHTML = state.goals.map((g,i)=>`
     <div class="set-item" data-i="${i}">
       <div class="ei-grid">
@@ -1604,17 +1661,6 @@ function collectEdit(){
     if($("fSyncRemember").checked) setSyncPass($("fSyncPass").value);
     else removeSyncPass();
   }
-  document.querySelectorAll("#fDreams .set-item").forEach(item => {
-    const d = state.dreams[+item.dataset.i]; if(!d) return;
-    item.querySelectorAll("[data-k]").forEach(inp => {
-      const k = inp.dataset.k, v = inp.value;
-      if(k==="cur"||k==="goal") d[k] = parseFloat(v)||0; else d[k] = v;
-    });
-  });
-  document.querySelectorAll("#fCards .set-item").forEach(item => {
-    const c = state.cards[+item.dataset.i]; if(!c) return;
-    item.querySelectorAll("[data-k]").forEach(inp => { c[inp.dataset.k] = inp.value; });
-  });
   document.querySelectorAll("#fGoals .set-item").forEach(item => {
     const g = state.goals[+item.dataset.i]; if(!g) return;
     item.querySelectorAll("[data-k]").forEach(inp => {
@@ -1641,11 +1687,35 @@ function collectEdit(){
 }
 function saveEdit(){ collectEdit(); save(); renderAll(); toast("已保存 ✦ 你的愿景板更新了"); }
 
+let ceIdx = -1;
 function addCard(){
-  state.cards.push({id:"c"+Date.now(), text:"新文字卡", size:"normal", color:"ink"});
-  save(); buildEditForm(); toast("已添加文字卡");
+  state.cards.push({id:"c"+Date.now(), text:"双击编辑文字", size:"normal", color:"ink"});
+  save(); renderAll();
+  openCardEdit(state.cards.length - 1);
 }
-function delCard(i){ state.cards.splice(i,1); save(); buildEditForm(); renderAll(); toast("已删除"); }
+function openCardEdit(ci){
+  const c = state.cards[ci]; if(!c) return;
+  ceIdx = ci;
+  $("ceText").value = c.text;
+  $("ceSize").value = c.size || "normal";
+  $("ceColor").value = c.color || "ink";
+  $("cardEdit").hidden = false;
+}
+function closeCardEdit(){ $("cardEdit").hidden = true; }
+function ceSave(){
+  const c = state.cards[ceIdx]; if(!c) return;
+  c.text = $("ceText").value.trim() || "新文字卡";
+  c.size = $("ceSize").value;
+  c.color = $("ceColor").value;
+  save(); renderAll(); closeCardEdit(); toast("已更新 ✦");
+}
+function ceDelete(){
+  const c = state.cards[ceIdx]; if(!c) return;
+  if(!confirm("删除这张文字卡？")) return;
+  state.cards.splice(ceIdx, 1);
+  save(); renderAll(); closeCardEdit(); toast("已删除");
+}
+function delCard(i){ state.cards.splice(i,1); save(); renderAll(); toast("已删除"); }
 
 function uploadImg(i){
   clearTimeout(tileTapTimer);
@@ -1858,7 +1928,8 @@ window.DB = {
   addTimeFlow, toggleTF, delTF, shiftDay,
   addDiary, delDiary, addCard, delCard,
   syncUpload, syncDownload, syncUploadAuto,
-  tapTile, openLightbox, closeLightbox, lbNav, lbNavTo, lbRemoveImg, lbBgClose, lbSetCover
+  tapTile, openLightbox, closeLightbox, lbNav, lbNavTo, lbRemoveImg, lbBgClose, lbSetCover,
+  lbEditField, openCardEdit, closeCardEdit, ceSave, ceDelete
 };
 initTheme();
 switchTab(state.tab || "vision");
