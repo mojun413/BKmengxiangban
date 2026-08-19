@@ -76,7 +76,7 @@ input,select,textarea{
   transition:border-color .18s, box-shadow .18s;
 }
 input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--sel)}
-input::placeholder,textarea::placeholder{color:var(--ink2);opacity:.72}
+input::placeholder,textarea::placeholder{color:color-mix(in srgb, var(--ink2) 70%, var(--ink));opacity:1}
 input[type="number"]{-moz-appearance:textfield}
 input[type="number"]::-webkit-inner-spin-button{opacity:.3}
 input[type="date"]::-webkit-calendar-picker-indicator{opacity:.5}
@@ -245,8 +245,10 @@ input[type="time"]::-webkit-calendar-picker-indicator{opacity:.5}
   background:rgba(20,16,11,.6);color:#fff;
   padding:3px 9px;border-radius:99px;
   font-size:11px;letter-spacing:.04em;line-height:1.4;
+  display:inline-flex;align-items:center;gap:4px;
   -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
 }
+.tile-count svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
 [data-theme="dark"] .tile-count{
   background:color-mix(in srgb, var(--gold) 18%, transparent);
   color:var(--gold);
@@ -405,6 +407,8 @@ input[type="time"]::-webkit-calendar-picker-indicator{opacity:.5}
 .tf-check.on{background:var(--green);border-color:var(--green);color:#fff}
 .tf-del{width:34px;height:42px;flex:0 0 34px;color:var(--ink2);font-size:17px}
 .tf-empty{text-align:center;color:var(--ink2);font-size:14px;padding:36px 0;line-height:2}
+.empty-art{display:inline-block;opacity:.32;margin-bottom:4px}
+.empty-art svg{width:58px;height:58px}
 
 /* ============ 成功 / 感恩日记 ============ */
 .diary-form{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow-sm);padding:12px;margin-bottom:16px;display:flex;gap:9px;align-items:stretch}
@@ -545,7 +549,12 @@ input[type="time"]::-webkit-calendar-picker-indicator{opacity:.5}
   background:rgba(20,16,11,.55);color:#fff;
   -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
   border:1px solid rgba(255,255,255,.2);
+  display:inline-flex;align-items:center;gap:5px;
 }
+.lb-actions button svg,.lb-close svg,.lb-nav button svg,.lb-thumb.add svg,.diary-del svg,.tf-del svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.lb-close svg{width:20px;height:20px;stroke-width:2.4}
+.lb-nav button svg{width:20px;height:20px;stroke-width:2.4}
+.lb-thumb.add svg{width:22px;height:22px}
 .lb-actions .danger{color:#FFC4B0;border-color:rgba(255,196,176,.4)}
 .lb-thumbs{
   display:flex;gap:6px;padding:8px 12px;overflow-x:auto;background:var(--card2);
@@ -786,16 +795,21 @@ input[type="time"]::-webkit-calendar-picker-indicator{opacity:.5}
         <h4>里程碑</h4>
         <div id="fMiles"></div>
       </section>
+      <details class="more" style="margin-top:22px">
+        <summary>高级 · 力量语与收尾语</summary>
+        <div class="more-body">
+          <section class="set-sec">
+            <h4>今日力量语（每行一条，留空用内置）</h4>
+            <textarea id="fStrengths"></textarea>
+          </section>
+          <section class="set-sec">
+            <h4>睡前收尾语（每行一条）</h4>
+            <textarea id="fClosing"></textarea>
+          </section>
+        </div>
+      </details>
       <section class="set-sec">
-        <h4>今日力量语（每行一条，留空用内置）</h4>
-        <textarea id="fStrengths"></textarea>
-      </section>
-      <section class="set-sec">
-        <h4>睡前收尾语（每行一条）</h4>
-        <textarea id="fClosing"></textarea>
-      </section>
-      <section class="set-sec">
-        <h4>☁ 云同步（再也不怕丢数据）</h4>
+        <h4>云同步（再也不怕丢数据）</h4>
         <div class="set-item">
           <label style="margin-bottom:10px">GitHub Token（每台设备输入一次，仅存本机浏览器）
             <input type="password" id="fSyncToken" placeholder="ghp_..." autocomplete="off">
@@ -808,8 +822,8 @@ input[type="time"]::-webkit-calendar-picker-indicator{opacity:.5}
           </label>
           <p class="set-cap">原理：数据用你的密码加密后，存入 GitHub 仓库（BKmengxiangban）的 sync 目录，云端只有密文看不到内容；换手机时同一密码一键恢复。Token 获取：github.com/settings/tokens → 勾 repo。</p>
           <div class="btn-row" style="margin-top:12px">
-            <button type="button" class="btn primary" onclick="DB.syncUpload()">☁ 上传到云端</button>
-            <button type="button" class="btn" onclick="DB.syncDownload()">☁ 从云端恢复</button>
+            <button type="button" class="btn primary" onclick="DB.syncUpload()">上传到云端</button>
+            <button type="button" class="btn" onclick="DB.syncDownload()">从云端恢复</button>
           </div>
           <p class="set-cap" id="syncStatus" style="color:var(--gold);font-weight:600"></p>
         </div>
@@ -857,14 +871,14 @@ input[type="time"]::-webkit-calendar-picker-indicator{opacity:.5}
 </nav>
 
 <div class="lightbox" id="lightbox" onclick="DB.lbBgClose(event)">
-  <button class="lb-close" onclick="DB.closeLightbox()" aria-label="关闭">✕</button>
+  <button class="lb-close" onclick="DB.closeLightbox()" aria-label="关闭"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
   <div class="lb-card" id="lbCard" onclick="event.stopPropagation()">
     <div class="lb-photo" id="lbPhoto">
       <div class="lb-counter" id="lbCounter">1/1</div>
       <div class="lb-track" id="lbTrack"></div>
       <div class="lb-nav">
-        <button id="lbPrev" onclick="DB.lbNav(-1)" aria-label="上一张">‹</button>
-        <button id="lbNext" onclick="DB.lbNav(1)" aria-label="下一张">›</button>
+        <button id="lbPrev" onclick="DB.lbNav(-1)" aria-label="上一张"><svg viewBox="0 0 24 24"><path d="M14 6l-6 6 6 6"/></svg></button>
+        <button id="lbNext" onclick="DB.lbNav(1)" aria-label="下一张"><svg viewBox="0 0 24 24"><path d="M10 6l6 6-6 6"/></svg></button>
       </div>
       <div class="lb-actions" id="lbActions"></div>
     </div>
@@ -959,6 +973,15 @@ const ICONS = {
   chart: `<svg viewBox="0 0 64 64" fill="none" stroke="var(--ink)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="13" y="33" width="9" height="15" rx="2" fill="var(--gold)" opacity=".75"/><rect x="26" y="25" width="9" height="23" rx="2" fill="var(--green)" opacity=".7"/><rect x="39" y="16" width="9" height="32" rx="2" fill="var(--accent)" opacity=".8"/><path d="M46 15l8-5 1 6" stroke="var(--green)" stroke-width="2.6" fill="none"/><circle cx="55" cy="9.5" r="2" fill="var(--gold)" stroke="none"/><circle cx="21" cy="13" r="3.4" fill="var(--gold)" stroke-width="1.7"/></svg>`
 };
 const ICON_LABELS = {goose:"鹅·攒钱",book:"书·学习",family:"家·家人",energy:"心·活力",world:"球·世界",calm:"云·平静",heart:"心·爱",coin:"金币",run:"奔跑",moon:"月亮",baby:"奶瓶·孩子",sun:"太阳",house:"房·100㎡家",offroad:"越野车",family4:"一家四口",habit:"好习惯",wallet:"钱包·收入",chart:"资产·曲线"};
+/* UI 图标库（内联 SVG，禁止 emoji 充当图标） */
+const UI_ICONS = {
+  star: '<svg viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.4 5.9.8-4.2 4.1 1 5.8-5.3-2.8-5.3 2.8 1-5.8-4.2-4.1 5.9-.8z"/></svg>',
+  trash: '<svg viewBox="0 0 24 24"><path d="M4.5 7h15M10 4h4M7.5 7l1 13h7l1-13M10 11v5M14 11v5"/></svg>',
+  plus: '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
+  close: '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  chevL: '<svg viewBox="0 0 24 24"><path d="M14 6l-6 6 6 6"/></svg>',
+  chevR: '<svg viewBox="0 0 24 24"><path d="M10 6l6 6-6 6"/></svg>'
+};
 
 function dateKey(d){
   return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
@@ -1167,7 +1190,7 @@ function renderCollage(){
             </div>
           </div>`;
       const moreBadge = imgs.length > 1
-        ? `<span class="tile-count">📷 ${imgs.length}</span>`
+        ? `<span class="tile-count"><svg viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13.5" r="3.6"/></svg>${imgs.length}</span>`
         : "";
       return `<div class="tile ${arClass}" data-di="${it.di}" onclick="DB.tapTile(this)" ondblclick="DB.uploadImg(${it.di})" title="轻点查看 · 双击加图">
         ${visual}
@@ -1220,15 +1243,15 @@ function renderLightbox(){
   $("lbNext").classList.toggle("hide", total <= 1);
   // 缩略图（长按/拖拽排序，第一张即封面）
   const thumbHtml = imgs.map((src,i)=>`<div class="lb-thumb ${i===lbIdx?'active':''}" data-i="${i}" onclick="DB.lbNavTo(${i})" title="点查看 · 拖动排序"><img src="${src}" draggable="false"></div>`).join("") +
-    (total < 9 ? `<div class="lb-thumb add" onclick="DB.uploadImg(${lbDi})" title="添加照片">＋</div>` : "");
+    (total < 9 ? `<div class="lb-thumb add" onclick="DB.uploadImg(${lbDi})" title="添加照片"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></div>` : "");
   $("lbThumbs").innerHTML = thumbHtml;
   bindThumbDrag();
   // 操作按钮（设为封面 / 添加 / 删除图 / 删除愿景）
   $("lbActions").innerHTML = `
-    ${total > 1 ? `<button onclick="DB.lbSetCover(${lbIdx})" title="把这张设为卡片主图">⭐ 封面</button>` : ""}
-    <button onclick="DB.uploadImg(${lbDi})">＋ 添加</button>
-    ${total ? `<button class="danger" onclick="DB.lbRemoveImg(${lbIdx})">✕ 删图</button>` : ""}
-    <button class="danger" onclick="DB.removeDream(${lbDi})">🗑 删愿景</button>
+    ${total > 1 ? `<button onclick="DB.lbSetCover(${lbIdx})" title="把这张设为卡片主图">${UI_ICONS.star} 封面</button>` : ""}
+    <button onclick="DB.uploadImg(${lbDi})">${UI_ICONS.plus} 添加</button>
+    ${total ? `<button class="danger" onclick="DB.lbRemoveImg(${lbIdx})">${UI_ICONS.trash} 删图</button>` : ""}
+    <button class="danger" onclick="DB.removeDream(${lbDi})">${UI_ICONS.trash} 删愿景</button>
   `;
   // 信息条（名称/为什么/数字 全部可点击修改）
   const p = pct(d.cur, d.goal);
@@ -1431,10 +1454,10 @@ function renderBackupHint(){
     const syncedToday = last && new Date(Number(last)).toDateString() === new Date().toDateString();
     if(syncedToday){
       hint.hidden = false;
-      hint.innerHTML = `<span>☁ 云端已备份 <b>✓</b>，数据安全</span>`;
+      hint.innerHTML = `<span>云端已备份 <b>✓</b>，数据安全</span>`;
     }else{
       hint.hidden = false;
-      hint.innerHTML = `<span>☁ 今天还没上传云端 · <b>点右侧一键备份</b>，再也不怕丢数据</span><button onclick="DB.syncUploadAuto()">一键备份</button>`;
+      hint.innerHTML = `<span>今天还没上传云端 · <b>点右侧一键备份</b>，再也不怕丢数据</span><button onclick="DB.syncUploadAuto()">一键备份</button>`;
     }
     return;
   }
@@ -1444,7 +1467,7 @@ function renderBackupHint(){
   count += state.milestones.length + state.timeflow.length + state.success.length + state.gratitude.length + state.cards.length;
   if(count >= 30 && !state.backupHintDismissed){
     $("hintCount").textContent = count;
-    hint.innerHTML = `<span>记录已积累 <b>${count}</b> 条 · <b>建议开启云同步</b>（设置页 ☁ 区）</span><button onclick="DB.switchTab('settings')">去设置</button>`;
+    hint.innerHTML = `<span>记录已积累 <b>${count}</b> 条 · <b>建议开启云同步</b>（设置页「云同步」区）</span><button onclick="DB.switchTab('settings')">去设置</button>`;
     hint.hidden = false;
   }else{
     hint.hidden = true;
@@ -1540,12 +1563,12 @@ function renderTime(){
   });
   const hh = Math.floor(mins/60), mm = mins%60;
   $("tfStats").innerHTML = `<span>共 <b>${items.length}</b> 个时间块</span><span>约 <b>${hh}h${mm?mm+"m":""}</b></span><span>完成 <b>${dn}/${items.length}</b></span>`;
-  if(!items.length){ $("tfList").innerHTML = `<div class="tf-empty">这一天还没安排 ✦<br>从上方的开始/结束时间记起吧</div>`; return; }
+  if(!items.length){ $("tfList").innerHTML = `<div class="tf-empty"><span class="empty-art">${ICONS.calm}</span><br>这一天还没安排<br>从上方的开始/结束时间记起吧</div>`; return; }
   $("tfList").innerHTML = items.map(it => `<div class="tf-item ${it.done?"done":""}">
     <span class="tf-time">${it.start}–${it.end}</span>
     <span class="tf-title">${esc(it.title)}</span>
     <button class="tf-check ${it.done?"on":""}" onclick="DB.toggleTF('${it.id}')">✓</button>
-    <button class="tf-del" onclick="DB.delTF('${it.id}')">✕</button>
+    <button class="tf-del" onclick="DB.delTF('${it.id}')"><svg viewBox="0 0 24 24"><path d="M4.5 7h15M10 4h4M7.5 7l1 13h7l1-13M10 11v5M14 11v5"/></svg></button>
   </div>`).join("");
 }
 function addTimeFlow(){
@@ -1574,7 +1597,7 @@ function renderDiary(kind){
   list.slice().sort((a,b)=>b.ts-a.ts).forEach(x => { (groups[x.date] = groups[x.date] || []).push(x); });
   const dates = Object.keys(groups).sort().reverse();
   if(!dates.length){
-    $(pre+"List").innerHTML = `<div class="diary-empty">${kind==="success"?"记录今天做成的事，哪怕只是「把碗洗了」<br>积累起来的都是底气":"谢谢今天的阳光、饭菜、还有身边的人"}</div>`;
+    $(pre+"List").innerHTML = `<div class="diary-empty"><span class="empty-art">${kind==="success"?ICONS.habit:ICONS.heart}</span><br>${kind==="success"?"记录今天做成的事，哪怕只是「把碗洗了」<br>积累起来的都是底气":"谢谢今天的阳光、饭菜、还有身边的人"}</div>`;
     return;
   }
   $(pre+"List").innerHTML = dates.map(d => `<div class="diary-group"><h4>${relDay(d)}</h4>
@@ -1582,7 +1605,7 @@ function renderDiary(kind){
       <span class="diary-check">✓</span>
       <span class="diary-text">${esc(x.text)}</span>
       <span class="diary-time">${new Date(x.ts).getHours()}:${String(new Date(x.ts).getMinutes()).padStart(2,"0")}</span>
-      <button class="diary-del" onclick="DB.delDiary('${kind}','${x.id}')">✕</button>
+      <button class="diary-del" onclick="DB.delDiary('${kind}','${x.id}')"><svg viewBox="0 0 24 24"><path d="M4.5 7h15M10 4h4M7.5 7l1 13h7l1-13M10 11v5M14 11v5"/></svg></button>
     </div>`).join("")}
   </div>`).join("");
 }
