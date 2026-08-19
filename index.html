@@ -118,34 +118,33 @@ input[type="time"]::-webkit-calendar-picker-indicator{opacity:.5}
 .view.active{display:block;animation:viewIn .2s ease-out both}
 @keyframes viewIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
 
-/* ============ ① 愿景板 Hero：年份 + 便签 + 今日节奏 ============ */
-.vb-hero{padding:20px 2px 4px;text-align:center}
-.year-block{position:relative;padding:6px 0 2px}
+/* ============ ① 愿景板 Hero：年份 + 便签 + 今日节奏（紧凑版） ============ */
+.vb-hero{padding:8px 2px 2px;text-align:center}
+.year-block{position:relative;padding:2px 0 0}
 .year-stamp{
   font-family:Georgia,"Songti SC",serif;font-weight:700;
-  font-size:clamp(78px, 22vw, 108px);line-height:1;letter-spacing:.02em;
+  font-size:clamp(54px, 15vw, 76px);line-height:1;letter-spacing:.02em;
   color:var(--ink);position:relative;display:inline-block;
-  text-shadow:0 2px 0 rgba(255,255,255,.35);
 }
-[data-theme="dark"] .year-stamp{text-shadow:0 2px 0 rgba(0,0,0,.25)}
+[data-theme="dark"] .year-stamp{text-shadow:0 1px 0 rgba(0,0,0,.18)}
 .year-stamp::after{
-  content:"";position:absolute;left:6%;right:6%;bottom:8px;height:10px;
+  content:"";position:absolute;left:8%;right:8%;bottom:6px;height:6px;
   background:linear-gradient(90deg,transparent,var(--sel),transparent);
   border-radius:99px;pointer-events:none;
 }
 .year-sub{
-  margin-top:10px;font-size:12px;letter-spacing:.42em;color:var(--ink2);
-  font-weight:600;text-indent:.42em;
+  margin-top:6px;font-size:11.5px;letter-spacing:.38em;color:var(--ink2);
+  font-weight:600;text-indent:.38em;
 }
 /* 便签式力量语 */
 .sticky-note{
-  position:relative;max-width:400px;margin:26px auto 0;
+  position:relative;max-width:380px;margin:16px auto 0;
   background:var(--card);border:1px dashed var(--line2);
-  padding:18px 22px 16px;border-radius:3px;
+  padding:14px 20px 13px;border-radius:3px;
   box-shadow:var(--shadow-sm);
   transform:rotate(-.6deg);
   font-family:Georgia,"Songti SC",serif;font-style:italic;
-  font-size:17.5px;line-height:1.75;color:var(--ink);
+  font-size:16.5px;line-height:1.7;color:var(--ink);
 }
 .sticky-note::before{
   content:"";position:absolute;top:-11px;left:50%;transform:translateX(-50%) rotate(-2deg);
@@ -156,7 +155,7 @@ input[type="time"]::-webkit-calendar-picker-indicator{opacity:.5}
 .sticky-note .q{color:var(--accent);font-style:normal;font-weight:700}
 /* 今日节奏 */
 .focus-card{
-  margin:24px 0 0;padding:16px 16px 14px;border-radius:16px;
+  margin:18px 0 0;padding:14px 14px 12px;border-radius:16px;
   background:var(--card);box-shadow:var(--shadow-sm);text-align:left;
   border:1px solid var(--line);
 }
@@ -182,6 +181,7 @@ input[type="time"]::-webkit-calendar-picker-indicator{opacity:.5}
   color:var(--accent);font-size:13.5px;
   display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;
 }
+.focus-overdue[hidden]{display:none}
 .focus-overdue .btn-sm{
   min-height:44px;padding:6px 16px;border-radius:999px;background:var(--accent);color:#fff;font-size:13.5px;white-space:nowrap;
   box-shadow:0 2px 6px color-mix(in srgb, var(--accent) 35%, transparent);
@@ -191,6 +191,7 @@ input[type="time"]::-webkit-calendar-picker-indicator{opacity:.5}
   background:var(--card2);border:1px dashed var(--gold);
   display:flex;align-items:center;gap:10px;justify-content:space-between;
 }
+.backup-hint[hidden]{display:none}
 .backup-hint b{color:var(--gold);font-weight:600}
 .backup-hint button{color:var(--ink2);font-size:13px;min-width:44px;min-height:44px}
 
@@ -483,7 +484,7 @@ input[type="time"]::-webkit-calendar-picker-indicator{opacity:.5}
   width:22px;height:3px;border-radius:0 0 4px 4px;background:var(--accent);
 }
 
-/* ============ 全屏预览（点击卡片展开原貌） ============ */
+/* ============ 全屏预览（点击卡片展开原貌，支持多图左右滑） ============ */
 .lightbox{
   position:fixed;inset:0;z-index:110;
   background:rgba(18,14,10,.82);
@@ -493,35 +494,80 @@ input[type="time"]::-webkit-calendar-picker-indicator{opacity:.5}
 }
 .lightbox.open{opacity:1;pointer-events:auto}
 .lb-card{
-  max-width:430px;width:100%;max-height:84vh;overflow:auto;
+  max-width:430px;width:100%;max-height:86vh;overflow:hidden;
   background:var(--card);border-radius:16px;box-shadow:0 28px 70px rgba(0,0,0,.45);
   transform:translateY(16px) scale(.97);transition:transform .28s cubic-bezier(.22,.8,.3,1);
+  display:flex;flex-direction:column;
 }
 .lightbox.open .lb-card{transform:none}
-.lb-photo{aspect-ratio:3/4;background:var(--card2);overflow:hidden;display:flex;align-items:center;justify-content:center}
-.lb-photo img{width:100%;height:100%;object-fit:cover;display:block}
+.lb-photo{aspect-ratio:3/4;background:var(--card2);overflow:hidden;display:flex;align-items:center;justify-content:center;position:relative;touch-action:pan-y}
+.lb-track{display:flex;width:100%;height:100%;transition:transform .32s cubic-bezier(.22,.8,.3,1)}
+.lb-track > div{flex:0 0 100%;height:100%;display:flex;align-items:center;justify-content:center;background:var(--card2)}
+.lb-track img{width:100%;height:100%;object-fit:cover;display:block;user-select:none;-webkit-user-drag:none}
+.lb-track > div:not([data-svg]){background:transparent}
 .lb-photo svg{width:46%;height:auto;max-height:72%}
-.lb-body{padding:18px 20px 22px}
+.lb-nav{
+  position:absolute;top:50%;left:0;right:0;display:flex;justify-content:space-between;padding:0 10px;
+  pointer-events:none;transform:translateY(-50%);
+}
+.lb-nav button{
+  pointer-events:auto;width:44px;height:44px;border-radius:50%;
+  background:rgba(20,16,11,.55);color:#fff;font-size:18px;font-weight:600;
+  display:flex;align-items:center;justify-content:center;
+  -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+  border:1px solid rgba(255,255,255,.18);transition:background .15s;
+}
+.lb-nav button:active{background:rgba(20,16,11,.78)}
+.lb-nav button.hide{visibility:hidden}
+.lb-counter{
+  position:absolute;top:12px;left:50%;transform:translateX(-50%);
+  background:rgba(20,16,11,.55);color:#fff;font-size:12.5px;font-family:Georgia,serif;
+  padding:4px 12px;border-radius:99px;letter-spacing:.06em;
+  -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
+}
+.lb-actions{
+  position:absolute;right:10px;bottom:10px;display:flex;gap:8px;
+}
+.lb-actions button{
+  min-height:38px;padding:0 12px;border-radius:999px;font-size:12.5px;
+  background:rgba(20,16,11,.55);color:#fff;
+  -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+  border:1px solid rgba(255,255,255,.2);
+}
+.lb-actions .danger{color:#FFC4B0;border-color:rgba(255,196,176,.4)}
+.lb-thumbs{
+  display:flex;gap:6px;padding:8px 12px;overflow-x:auto;background:var(--card2);
+  border-top:1px solid var(--line);
+  scrollbar-width:none;
+}
+.lb-thumbs::-webkit-scrollbar{display:none}
+.lb-thumb{
+  flex:0 0 52px;height:52px;border-radius:7px;overflow:hidden;
+  border:2px solid transparent;opacity:.6;cursor:pointer;flex-shrink:0;
+  background:var(--card);
+}
+.lb-thumb.active{border-color:var(--accent);opacity:1}
+.lb-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.lb-thumb.add{
+  display:flex;align-items:center;justify-content:center;font-size:20px;color:var(--ink2);
+  border-style:dashed;border-color:var(--line2);
+}
+.lb-body{padding:16px 20px 20px}
 .lb-name{font-family:Georgia,"Songti SC",serif;font-size:21px;font-weight:700;letter-spacing:.01em}
 .lb-why{font-size:14px;color:var(--ink2);margin-top:7px;line-height:1.75}
 .lb-meta{display:flex;align-items:center;justify-content:space-between;margin-top:14px;padding-top:12px;border-top:1px solid var(--line);font-size:13px;color:var(--ink2)}
 .lb-meta .lb-num{font-family:Georgia,serif;font-size:19px;font-weight:700;color:var(--accent)}
 .lb-meta .lb-num.green{color:var(--green)}
+.lb-empty{padding:40px 20px;text-align:center;color:var(--ink2);font-size:14px}
 .lb-close{
   position:absolute;top:16px;right:16px;width:46px;height:46px;border-radius:50%;
-  background:rgba(255,255,255,.16);color:#fff;font-size:20px;z-index:2;
+  background:rgba(255,255,255,.16);color:#fff;font-size:20px;z-index:3;
   display:flex;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,.18);
 }
 .lb-hint{
   position:absolute;bottom:20px;left:0;right:0;text-align:center;
-  color:rgba(255,255,255,.6);font-size:12px;letter-spacing:.08em;
+  color:rgba(255,255,255,.6);font-size:12px;letter-spacing:.08em;pointer-events:none;
 }
-.lb-photo .lb-change{
-  position:absolute;right:12px;bottom:12px;min-height:40px;padding:0 14px;border-radius:999px;
-  background:rgba(20,16,11,.62);color:#fff;font-size:12.5px;
-  -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.2);
-}
-.lb-photo{position:relative}
 
 /* Toast */
 .toast{
@@ -677,7 +723,7 @@ input[type="time"]::-webkit-calendar-picker-indicator{opacity:.5}
       <section class="set-sec">
         <h4>愿景卡（可上传自己的照片）</h4>
         <div id="fDreams"></div>
-        <p class="set-cap">照片会自动压缩到 800px 存本机（8 张约 1~2MB）。在设置里改名称/进度/单位，回到愿景板自动算。</p>
+        <p class="set-cap">照片会自动压缩到 800px 存本机（每张卡最多 9 张）。双击卡片图片也可加图；在灯箱里左右滑动查看，点 ✕ 删除单张。</p>
       </section>
       <section class="set-sec">
         <h4>文字卡（穿插在拼贴里的大字）</h4>
@@ -767,10 +813,22 @@ input[type="time"]::-webkit-calendar-picker-indicator{opacity:.5}
   </button>
 </nav>
 
-<div class="lightbox" id="lightbox" onclick="DB.closeLightbox()">
+<div class="lightbox" id="lightbox" onclick="DB.lbBgClose(event)">
   <button class="lb-close" onclick="DB.closeLightbox()" aria-label="关闭">✕</button>
-  <div class="lb-card" id="lbCard" onclick="event.stopPropagation()"></div>
-  <p class="lb-hint">点空白处关闭 · 双击卡片可换照片</p>
+  <div class="lb-card" id="lbCard" onclick="event.stopPropagation()">
+    <div class="lb-photo" id="lbPhoto">
+      <div class="lb-counter" id="lbCounter">1/1</div>
+      <div class="lb-track" id="lbTrack"></div>
+      <div class="lb-nav">
+        <button id="lbPrev" onclick="DB.lbNav(-1)" aria-label="上一张">‹</button>
+        <button id="lbNext" onclick="DB.lbNav(1)" aria-label="下一张">›</button>
+      </div>
+      <div class="lb-actions" id="lbActions"></div>
+    </div>
+    <div class="lb-thumbs" id="lbThumbs"></div>
+    <div class="lb-body" id="lbBody"></div>
+  </div>
+  <p class="lb-hint" id="lbHint">左右滑动切换 · 点空白关闭</p>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -849,14 +907,14 @@ function demoState(){
     name: "我", theme: "auto", tab: "vision", yearTitle: "2026",
     userStrengths: [], userClosing: [],
     dreams: [
-      {id:"d1", name:"100㎡ 小区房", why:"给一家四口一个安稳亮堂的家", icon:"house", img:null, cur:180000, goal:600000, unit:"元", tint:"gold"},
-      {id:"d2", name:"方程豹越野车", why:"周末带上全家，去野、去远、去自由", icon:"offroad", img:null, cur:84000, goal:280000, unit:"元", tint:"accent"},
-      {id:"d3", name:"一家四口幸福生活", why:"我们的笑声，是家里最好的装修", icon:"family4", img:null, cur:68, goal:100, unit:"%", tint:"rose"},
-      {id:"d4", name:"身体健康 · 精神富足", why:"身体是愿景的存款，精神是前进的光", icon:"energy", img:null, cur:56, goal:150, unit:"次", tint:"green"},
-      {id:"d5", name:"好习惯 · 户外/阅读/健身", why:"好习惯是复利，每天存一点", icon:"habit", img:null, cur:38, goal:100, unit:"天", tint:"blue"},
-      {id:"d6", name:"稳定的收入", why:"睡得着觉的钱，才是好收入", icon:"wallet", img:null, cur:12000, goal:20000, unit:"元", tint:"green"},
-      {id:"d7", name:"资产的积累", why:"让雪球滚起来，让时间站在我这边", icon:"chart", img:null, cur:84000, goal:300000, unit:"元", tint:"gold"},
-      {id:"d8", name:"全家自驾远方", why:"车轮到不了的地方，心也要到", icon:"world", img:null, cur:1, goal:6, unit:"次", tint:"blue"}
+      {id:"d1", name:"100㎡ 小区房", why:"给一家四口一个安稳亮堂的家", icon:"house", img:null, images:[], cur:180000, goal:600000, unit:"元", tint:"gold"},
+      {id:"d2", name:"方程豹越野车", why:"周末带上全家，去野、去远、去自由", icon:"offroad", img:null, images:[], cur:84000, goal:280000, unit:"元", tint:"accent"},
+      {id:"d3", name:"一家四口幸福生活", why:"我们的笑声，是家里最好的装修", icon:"family4", img:null, images:[], cur:68, goal:100, unit:"%", tint:"rose"},
+      {id:"d4", name:"身体健康 · 精神富足", why:"身体是愿景的存款，精神是前进的光", icon:"energy", img:null, images:[], cur:56, goal:150, unit:"次", tint:"green"},
+      {id:"d5", name:"好习惯 · 户外/阅读/健身", why:"好习惯是复利，每天存一点", icon:"habit", img:null, images:[], cur:38, goal:100, unit:"天", tint:"blue"},
+      {id:"d6", name:"稳定的收入", why:"睡得着觉的钱，才是好收入", icon:"wallet", img:null, images:[], cur:12000, goal:20000, unit:"元", tint:"green"},
+      {id:"d7", name:"资产的积累", why:"让雪球滚起来，让时间站在我这边", icon:"chart", img:null, images:[], cur:84000, goal:300000, unit:"元", tint:"gold"},
+      {id:"d8", name:"全家自驾远方", why:"车轮到不了的地方，心也要到", icon:"world", img:null, images:[], cur:1, goal:6, unit:"次", tint:"blue"}
     ],
     cards: [
       {id:"c1", text:"Financial Freedom", size:"big", color:"accent"},
@@ -899,7 +957,7 @@ function blankState(){
   const s = demoState();
   s.name = "我";
   s.yearTitle = String(new Date().getFullYear());
-  s.dreams.forEach(d => { d.cur = 0; d.why = ""; d.img = null; });
+  s.dreams.forEach(d => { d.cur = 0; d.why = ""; if(!Array.isArray(d.images)) d.images = []; });
   s.goals.forEach(g => { g.cur = 0; });
   s.habits.forEach(h => { h.days = {}; });
   s.milestones = [{id:"m1", date:"", title:"写下第一个愿景里程碑", desc:"", done:false}];
@@ -915,7 +973,13 @@ function load(){
     const p = JSON.parse(raw);
     const d = demoState();
     const dreams = Array.isArray(p.dreams) && p.dreams.length ? p.dreams : d.dreams;
-    dreams.forEach(x => { if(x.img === undefined) x.img = null; });
+    dreams.forEach(x => {
+      if(!Array.isArray(x.images)){
+        x.images = x.img ? [x.img] : [];
+      } else if(x.img && !x.images.length){
+        x.images = [x.img];
+      }
+    });
     return {
       name: p.name || d.name, theme: p.theme || "auto", tab: p.tab || "vision",
       yearTitle: p.yearTitle || d.yearTitle,
@@ -1013,10 +1077,11 @@ function renderCollage(){
     const arClass = AR_CYCLE[it.arIdx % AR_CYCLE.length];
     if(it.kind === "dream"){
       const d = it.data;
+      const imgs = Array.isArray(d.images) ? d.images : (d.img ? [d.img] : []);
       const p = pct(d.cur, d.goal);
       const col = TINTS[d.tint] || "var(--accent)";
-      const visual = d.img
-        ? `<span class="tile-photo"><img src="${d.img}" alt="${esc(d.name)}"></span>`
+      const visual = imgs.length
+        ? `<span class="tile-photo"><img src="${imgs[0]}" alt="${esc(d.name)}"></span>`
         : `<span class="tile-photo"><span class="tile-fallback">${ICONS[d.icon]||ICONS.heart}</span></span>`;
       // 紧凑浮层：数字直接落在照片底部（带阴影）
       const cap = d.unit === "%"
@@ -1031,9 +1096,10 @@ function renderCollage(){
               <b>${p}%</b>
             </div>
           </div>`;
-      return `<div class="tile ${arClass}" data-di="${it.di}" onclick="DB.tapTile(this)" ondblclick="DB.uploadImg(${it.di})" title="轻点查看 · 双击换图">
+      const moreBadge = imgs.length > 1 ? `<span class="tile-ring" style="font-size:11px;background:rgba(20,16,11,.62);color:#fff;padding:4px 9px;border-radius:99px;letter-spacing:.04em">+${imgs.length-1}</span>` : "";
+      return `<div class="tile ${arClass}" data-di="${it.di}" onclick="DB.tapTile(this)" ondblclick="DB.uploadImg(${it.di})" title="轻点查看 · 双击加图">
         ${visual}
-        <span class="tile-ring">${ring(p, 34, 3.4, col)}</span>
+        ${imgs.length>1 ? moreBadge : `<span class="tile-ring">${ring(p, 34, 3.4, col)}</span>`}
         ${cap}
       </div>`;
     }else{
@@ -1048,25 +1114,77 @@ function tapTile(el){
   clearTimeout(tileTapTimer);
   tileTapTimer = setTimeout(()=>openLightbox(di), 260);
 }
-function openLightbox(di){
+let lbIdx = 0, lbDi = -1;
+function lbImgs(di){ const d=state.dreams[di]; if(!d) return []; let imgs = Array.isArray(d.images) ? d.images : (d.img ? [d.img] : []); if(!imgs.length && d.icon){ /* 用插画做第一张占位 */ } return imgs; }
+function openLightbox(di, idx){
+  lbDi = di; lbIdx = idx || 0;
   const d = state.dreams[di]; if(!d) return;
+  const imgs = lbImgs(di);
+  if(!imgs.length && !d.icon){ $("lbBody").innerHTML = `<div class="lb-empty">还没上传照片 · 点右上「添加」</div>`; $("lbTrack").innerHTML=""; $("lbCounter").textContent="0/0"; $("lbThumbs").innerHTML=""; $("lbActions").innerHTML=`<button onclick="DB.uploadImg(${di})">＋ 添加照片</button>`; $("lightbox").classList.add("open"); return; }
+  renderLightbox();
+  $("lightbox").classList.add("open");
+  // 触屏滑动
+  bindPhotoSwipe();
+}
+function renderLightbox(){
+  const d = state.dreams[lbDi]; if(!d) return;
+  const imgs = lbImgs(lbDi);
+  const total = imgs.length;
+  // 轮播
+  const trackHtml = imgs.map((src,i)=>`<div><img src="${src}" alt=""></div>`).join("");
+  $("lbTrack").innerHTML = trackHtml;
+  $("lbTrack").style.transform = `translateX(-${lbIdx * 100}%)`;
+  // 计数 / 上下张
+  $("lbCounter").textContent = total ? (lbIdx+1)+"/"+total : (d.icon ? "插画" : "0/0");
+  $("lbPrev").classList.toggle("hide", total <= 1);
+  $("lbNext").classList.toggle("hide", total <= 1);
+  // 缩略图
+  const thumbHtml = imgs.map((src,i)=>`<div class="lb-thumb ${i===lbIdx?'active':''}" onclick="DB.lbNavTo(${i})"><img src="${src}"></div>`).join("") +
+    (total < 9 ? `<div class="lb-thumb add" onclick="DB.uploadImg(${lbDi})" title="添加照片">＋</div>` : "");
+  $("lbThumbs").innerHTML = thumbHtml;
+  // 操作按钮（添加/删除当前）
+  $("lbActions").innerHTML = `
+    <button onclick="DB.uploadImg(${lbDi})">＋ 添加</button>
+    ${total ? `<button class="danger" onclick="DB.lbRemoveImg(${lbIdx})">✕ 删除</button>` : ""}
+  `;
+  // 信息条（名称/why/数字/进度）
   const p = pct(d.cur, d.goal);
-  const col = TINTS[d.tint] || "var(--accent)";
-  const visual = d.img
-    ? `<div class="lb-photo"><img src="${d.img}" alt="${esc(d.name)}"><button class="lb-change" onclick="DB.uploadImg(${di})">换照片</button></div>`
-    : `<div class="lb-photo">${ICONS[d.icon]||ICONS.heart}<button class="lb-change" onclick="DB.uploadImg(${di})">上传照片</button></div>`;
   const num = d.unit === "%"
     ? `<div class="lb-meta"><span>完成度</span><span class="lb-num ${p>=100?'green':''}">${p}%</span></div>`
     : `<div class="lb-meta"><span>${esc(d.unit||"")}</span><span class="lb-num ${p>=100?'green':''}">${fmtNum(d.cur)} / ${fmtNum(d.goal)}</span></div>`;
-  $("lbCard").innerHTML = `${visual}
-    <div class="lb-body">
-      <div class="lb-name">${esc(d.name)}</div>
-      <div class="lb-why">${esc(d.why) || "在设置里写下它为什么重要"}</div>
-      ${num}
-    </div>`;
-  $("lightbox").classList.add("open");
+  $("lbBody").innerHTML = `<div class="lb-name">${esc(d.name)}</div><div class="lb-why">${esc(d.why) || "在设置里写下它为什么重要"}</div>${num}`;
+}
+function lbNav(delta){
+  const total = lbImgs(lbDi).length; if(!total) return;
+  lbIdx = (lbIdx + delta + total) % total;
+  renderLightbox();
+}
+function lbNavTo(i){ lbIdx = i; renderLightbox(); }
+function lbRemoveImg(i){
+  const d = state.dreams[lbDi]; if(!d || !d.images || !d.images[i]) return;
+  if(!confirm("删除这张照片？")) return;
+  d.images.splice(i,1);
+  if(!d.images.length) d.img = null; else d.img = d.images[0];
+  lbIdx = Math.min(lbIdx, d.images.length-1);
+  save(); buildEditForm && buildEditForm(); renderAll();
+  if(d.images.length){ renderLightbox(); }
+  else { openLightbox(lbDi, 0); }
+}
+function lbBgClose(e){
+  // 仅当点击点在 .lightbox 自身（不在 .lb-card 内部）时关闭
+  if(e.target.id === "lightbox") closeLightbox();
 }
 function closeLightbox(){ $("lightbox").classList.remove("open"); }
+function bindPhotoSwipe(){
+  const el = $("lbPhoto"); if(!el || el.dataset.swipe) return; el.dataset.swipe="1";
+  let sx=0, dx=0, active=false;
+  el.addEventListener("touchstart", e=>{ sx=e.touches[0].clientX; dx=0; active=true; }, {passive:true});
+  el.addEventListener("touchmove", e=>{ if(!active) return; dx=e.touches[0].clientX - sx; if(Math.abs(dx)>8) e.preventDefault(); }, {passive:false});
+  el.addEventListener("touchend", e=>{
+    if(!active) return; active=false;
+    if(Math.abs(dx) > 50) lbNav(dx < 0 ? 1 : -1);
+  });
+}
 
 function renderFocus(){
   const habits = state.habits;
@@ -1315,9 +1433,10 @@ function buildEditForm(){
         <input type="text" data-k="unit" value="${esc(d.unit)}" placeholder="单位">
       </div>
       <div class="img-actions">
-        <button type="button" class="mini accent" onclick="DB.uploadImg(${i})">上传照片</button>
-        ${d.img ? `<button type="button" class="mini" onclick="DB.removeImg(${i})">移除照片</button>` : ""}
+        <button type="button" class="mini accent" onclick="DB.uploadImg(${i})">＋ 添加照片</button>
+        ${(d.images && d.images.length) ? `<button type="button" class="mini" onclick="DB.removeImg(${i})">清除全部</button>` : ""}
       </div>
+      ${(d.images && d.images.length) ? `<p style="font-size:12px;color:var(--ink2);margin-top:6px">📷 已上传 ${d.images.length} 张 · 在灯箱里可单张删除</p>` : ""}
     </div>`).join("");
   $("fCards").innerHTML = state.cards.map((c,i)=>`
     <div class="set-item card-row" data-i="${i}">
@@ -1418,6 +1537,8 @@ function delCard(i){ state.cards.splice(i,1); save(); buildEditForm(); renderAll
 function uploadImg(i){
   clearTimeout(tileTapTimer);
   const d = state.dreams[i]; if(!d) return;
+  if(!Array.isArray(d.images)) d.images = (d.img ? [d.img] : []);
+  if(d.images.length >= 9){ toast("本张最多 9 张照片，先在灯箱里删除几张吧"); return; }
   const input = document.createElement("input");
   input.type = "file"; input.accept = "image/*";
   input.onchange = e => {
@@ -1433,8 +1554,12 @@ function uploadImg(i){
         c.width = Math.max(1, Math.round(img.width*scale));
         c.height = Math.max(1, Math.round(img.height*scale));
         c.getContext("2d").drawImage(img,0,0,c.width,c.height);
-        d.img = c.toDataURL("image/jpeg", 0.82);
-        save(); buildEditForm(); renderAll(); toast("照片已换上 ✦");
+        const dataUrl = c.toDataURL("image/jpeg", 0.82);
+        d.images.push(dataUrl);
+        if(!d.img) d.img = dataUrl;
+        save(); if(typeof buildEditForm==="function") buildEditForm(); renderAll();
+        if($("lightbox").classList.contains("open") && lbDi === i){ lbIdx = d.images.length - 1; renderLightbox(); }
+        toast("已添加 ✦");
       };
       img.onerror = () => toast("图片读取失败");
       img.src = ev.target.result;
@@ -1445,7 +1570,13 @@ function uploadImg(i){
 }
 function removeImg(i){
   const d = state.dreams[i]; if(!d) return;
-  d.img = null; save(); buildEditForm(); renderAll(); toast("已恢复手绘插画");
+  if(!Array.isArray(d.images)) d.images = [];
+  if(!d.images.length){ toast("这张卡没有照片"); return; }
+  if(!confirm("删除这张愿景卡上的所有照片？（会保留手绘插画占位）")) return;
+  d.images = [];
+  d.img = null;
+  save(); buildEditForm(); renderAll();
+  toast("已清空该卡照片");
 }
 
 /* ===== 云同步：加密数据存到 GitHub 仓库（云端只存密文） ===== */
@@ -1614,7 +1745,7 @@ window.DB = {
   addTimeFlow, toggleTF, delTF, shiftDay,
   addDiary, delDiary, addCard, delCard,
   syncUpload, syncDownload, syncUploadAuto,
-  tapTile, openLightbox, closeLightbox
+  tapTile, openLightbox, closeLightbox, lbNav, lbNavTo, lbRemoveImg, lbBgClose
 };
 initTheme();
 switchTab(state.tab || "vision");
