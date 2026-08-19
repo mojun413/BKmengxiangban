@@ -1846,9 +1846,18 @@ async function syncUpload(){
   if(!token){ toast("先粘贴你的 GitHub Token"); return; }
   if(pass.length < 6){ toast("同步密码至少 6 位"); return; }
   const ui = $("syncStatus");
-  ui.textContent = "正在加密上传…";
+  ui.textContent = "正在压缩并加密上传…";
   try{
-    const payload = await syncEncrypt(JSON.stringify(state), pass);
+    // 图片压缩为低清副本（同步体积小，本地高清图不受影响）
+    const syncState = JSON.parse(JSON.stringify(state));
+    for(const d of syncState.dreams){
+      if(Array.isArray(d.images) && d.images.length){
+        const imgs = [];
+        for(const s of d.images){ imgs.push(await compressImg(s, 420, 0.62)); }
+        d.images = imgs;
+      }
+    }
+    const payload = await syncEncrypt(JSON.stringify(syncState), pass);
     const content = syncToB64(payload);
     const exist = await syncGh('/repos/'+SYNC_OWNER+'/'+SYNC_REPO+'/contents/'+SYNC_PATH, {}, token);
     const body = {message:'sync: vision board', content};
@@ -1865,19 +1874,40 @@ async function syncUpload(){
     }
   }catch(e){ ui.textContent = "上传出错：" + e.message; toast("上传出错"); }
 }
+function compressImg(dataUrl, maxW, quality){
+  return new Promise(res => {
+    const img = new Image();
+    img.onload = () => {
+      try{
+        const scale = Math.min(1, maxW / img.width);
+        const c = document.createElement("canvas");
+        c.width = Math.max(1, Math.round(img.width * scale));
+        c.height = Math.max(1, Math.round(img.height * scale));
+        c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+        res(c.toDataURL("image/jpeg", quality));
+      }catch(e){ res(dataUrl); }
+    };
+    img.onerror = () => res(dataUrl);
+    img.src = dataUrl;
+  });
+}
 async function syncDownload(){
   const pass = $("fSyncPass").value;
   const ui = $("syncStatus");
   if(pass.length < 6){ toast("输入同步密码"); return; }
   ui.textContent = "正在从云端拉取…";
   try{
-    const res = await syncGh('/repos/'+SYNC_OWNER+'/'+SYNC_REPO+'/contents/'+SYNC_PATH, {}, getSyncToken() || '');
+    // 用 raw 通道下载（Contents 默认接口对 >1MB 文件返回空内容）
+    const headers = {'Accept':'application/vnd.github.raw+json', 'User-Agent':'vision-board-sync'};
+    const tok = getSyncToken();
+    if(tok) headers['Authorization'] = 'Bearer ' + tok;
+    const res = await fetch('https:' + '//api.github.com/repos/' + SYNC_OWNER + '/' + SYNC_REPO + '/contents/' + SYNC_PATH, {headers});
     if(res.status === 404){ ui.textContent = "云端还没有备份，先点「上传到云端」"; toast("云端暂无备份"); return; }
     if(res.status !== 200){ ui.textContent = "拉取失败(" + res.status + ")"; return; }
-    const payloadStr = syncFromB64(res.data.content);
+    const payloadStr = await res.text();
     let jsonStr;
     try{ jsonStr = await syncDecrypt(payloadStr, pass); }
-    catch(e){ ui.textContent = "密码不对，无法解密（或云端数据损坏）"; toast("密码不对"); return; }
+    catch(e){ ui.textContent = "密码不对，无法解密（请确认与上传时完全一致，含大小写与空格）"; toast("密码不对"); return; }
     const p = JSON.parse(jsonStr);
     if(!p.dreams && !p.goals) throw new Error("bad");
     const oldTheme = state.theme;
@@ -1887,7 +1917,10 @@ async function syncDownload(){
     if(!Array.isArray(state.success)) state.success = [];
     if(!Array.isArray(state.gratitude)) state.gratitude = [];
     if(!Array.isArray(state.cards)) state.cards = [];
-    (state.dreams||[]).forEach(x => { if(x.img === undefined) x.img = null; });
+    (state.dreams||[]).forEach(x => {
+      if(!Array.isArray(x.images)) x.images = x.img ? [x.img] : [];
+      if(x.images.length && !x.img) x.img = x.images[0];
+    });
     save(); renderAll();
     ui.textContent = "✓ 已从云端恢复：" + new Date().toLocaleString('zh-CN',{hour12:false});
     toast("已从云端恢复 ✦");
