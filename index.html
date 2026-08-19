@@ -541,17 +541,25 @@ input[type="time"]::-webkit-calendar-picker-indicator{opacity:.5}
   scrollbar-width:none;
 }
 .lb-thumbs::-webkit-scrollbar{display:none}
+.lb-thumbs.dragging{overflow:hidden;touch-action:none}
 .lb-thumb{
   flex:0 0 52px;height:52px;border-radius:7px;overflow:hidden;
   border:2px solid transparent;opacity:.6;cursor:pointer;flex-shrink:0;
-  background:var(--card);
+  background:var(--card);position:relative;
 }
 .lb-thumb.active{border-color:var(--accent);opacity:1}
-.lb-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.lb-thumb.dragging{opacity:.32}
+.lb-thumb img{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none}
 .lb-thumb.add{
   display:flex;align-items:center;justify-content:center;font-size:20px;color:var(--ink2);
   border-style:dashed;border-color:var(--line2);
 }
+.thumb-clone{
+  position:fixed;z-index:130;border-radius:9px;overflow:hidden;
+  box-shadow:0 12px 34px rgba(0,0,0,.42);pointer-events:none;
+  transform:scale(1.12);transition:transform .16s ease;
+}
+.thumb-clone img{width:100%;height:100%;object-fit:cover;display:block}
 .lb-body{padding:16px 20px 20px}
 .lb-name{font-family:Georgia,"Songti SC",serif;font-size:21px;font-weight:700;letter-spacing:.01em}
 .lb-why{font-size:14px;color:var(--ink2);margin-top:7px;line-height:1.75}
@@ -1096,10 +1104,13 @@ function renderCollage(){
               <b>${p}%</b>
             </div>
           </div>`;
-      const moreBadge = imgs.length > 1 ? `<span class="tile-ring" style="font-size:11px;background:rgba(20,16,11,.62);color:#fff;padding:4px 9px;border-radius:99px;letter-spacing:.04em">+${imgs.length-1}</span>` : "";
+      const moreBadge = imgs.length > 1
+        ? `<span class="tile-ring" style="top:11px;left:11px;right:auto;background:rgba(20,16,11,.6);color:#fff;padding:3px 9px;border-radius:99px;font-size:11px;letter-spacing:.04em;line-height:1.4">📷 ${imgs.length}</span>`
+        : "";
       return `<div class="tile ${arClass}" data-di="${it.di}" onclick="DB.tapTile(this)" ondblclick="DB.uploadImg(${it.di})" title="轻点查看 · 双击加图">
         ${visual}
-        ${imgs.length>1 ? moreBadge : `<span class="tile-ring">${ring(p, 34, 3.4, col)}</span>`}
+        <span class="tile-ring">${ring(p, 30, 3, col)}</span>
+        ${moreBadge}
         ${cap}
       </div>`;
     }else{
@@ -1138,12 +1149,14 @@ function renderLightbox(){
   $("lbCounter").textContent = total ? (lbIdx+1)+"/"+total : (d.icon ? "插画" : "0/0");
   $("lbPrev").classList.toggle("hide", total <= 1);
   $("lbNext").classList.toggle("hide", total <= 1);
-  // 缩略图
-  const thumbHtml = imgs.map((src,i)=>`<div class="lb-thumb ${i===lbIdx?'active':''}" onclick="DB.lbNavTo(${i})"><img src="${src}"></div>`).join("") +
+  // 缩略图（长按/拖拽排序，第一张即封面）
+  const thumbHtml = imgs.map((src,i)=>`<div class="lb-thumb ${i===lbIdx?'active':''}" data-i="${i}" onclick="DB.lbNavTo(${i})" title="点查看 · 拖动排序"><img src="${src}" draggable="false"></div>`).join("") +
     (total < 9 ? `<div class="lb-thumb add" onclick="DB.uploadImg(${lbDi})" title="添加照片">＋</div>` : "");
   $("lbThumbs").innerHTML = thumbHtml;
-  // 操作按钮（添加/删除当前）
+  bindThumbDrag();
+  // 操作按钮（设为封面 / 添加 / 删除当前）
   $("lbActions").innerHTML = `
+    ${total > 1 ? `<button onclick="DB.lbSetCover(${lbIdx})" title="把这张设为卡片主图">⭐ 封面</button>` : ""}
     <button onclick="DB.uploadImg(${lbDi})">＋ 添加</button>
     ${total ? `<button class="danger" onclick="DB.lbRemoveImg(${lbIdx})">✕ 删除</button>` : ""}
   `;
@@ -1175,6 +1188,106 @@ function lbBgClose(e){
   if(e.target.id === "lightbox") closeLightbox();
 }
 function closeLightbox(){ $("lightbox").classList.remove("open"); }
+function moveImgInArray(arr, from, to){
+  if(from === to) return;
+  const it = arr.splice(from, 1)[0];
+  arr.splice(to, 0, it);
+}
+function syncImgState(di){
+  const d = state.dreams[di]; if(!d) return;
+  if(Array.isArray(d.images) && d.images.length) d.img = d.images[0];
+}
+/* 缩略图拖拽排序：手机长按拖动，桌面直接拖 */
+let tDrag = null;
+function bindThumbDrag(){
+  const bar = $("lbThumbs"); if(!bar) return;
+  bar.ontouchstart = null; bar.ontouchmove = null; bar.ontouchend = null;
+  bar.addEventListener("touchstart", tdStart, {passive:true});
+  bar.addEventListener("touchmove", tdMove, {passive:false});
+  bar.addEventListener("touchend", tdEnd, {passive:true});
+  // 桌面：原生 Drag and Drop
+  bar.querySelectorAll(".lb-thumb[data-i]").forEach(t => {
+    t.ondragstart = e => { e.dataTransfer.setData("text/plain", t.dataset.i); t.classList.add("dragging"); };
+    t.ondragend = () => t.classList.remove("dragging");
+    t.ondragover = e => e.preventDefault();
+    t.ondrop = e => {
+      e.preventDefault();
+      const from = +e.dataTransfer.getData("text/plain");
+      const to = +t.dataset.i;
+      const d = state.dreams[lbDi]; if(!d || !Array.isArray(d.images)) return;
+      moveImgInArray(d.images, from, to);
+      syncImgState(lbDi); save(); renderAll(); renderLightbox();
+      toast("已调整顺序 ✦");
+    };
+  });
+}
+function tdStart(e){
+  const t = e.target.closest(".lb-thumb[data-i]");
+  if(!t) return;
+  const i = +t.dataset.i;
+  const x0 = e.touches[0].clientX, y0 = e.touches[0].clientY;
+  const timer = setTimeout(() => {
+    const r = t.getBoundingClientRect();
+    const clone = document.createElement("div");
+    clone.className = "thumb-clone";
+    clone.style.width = r.width + "px";
+    clone.style.height = r.height + "px";
+    clone.style.left = r.left + "px";
+    clone.style.top = r.top + "px";
+    clone.innerHTML = t.innerHTML;
+    document.body.appendChild(clone);
+    t.classList.add("dragging");
+    $("lbThumbs").classList.add("dragging");
+    tDrag = {i, active:true, x:x0, y:y0, w:r.width, h:r.height, clone, bar:$("lbThumbs")};
+    if(navigator.vibrate) navigator.vibrate(30);
+  }, 420);
+  tDrag = {i, timer, startX:x0, startY:y0, active:false};
+}
+function tdMove(e){
+  if(!tDrag) return;
+  if(!tDrag.active){
+    const dx = Math.abs(e.touches[0].clientX - tDrag.startX);
+    const dy = Math.abs(e.touches[0].clientY - tDrag.startY);
+    if(dx > 10 || dy > 10){ clearTimeout(tDrag.timer); tDrag = null; }
+    return;
+  }
+  e.preventDefault();
+  tDrag.x = e.touches[0].clientX;
+  tDrag.y = e.touches[0].clientY;
+  if(tDrag.clone){
+    tDrag.clone.style.left = (tDrag.x - tDrag.w/2) + "px";
+    tDrag.clone.style.top = (tDrag.y - tDrag.h/2) + "px";
+  }
+}
+function tdEnd(e){
+  if(!tDrag) return;
+  clearTimeout(tDrag.timer);
+  const wasDrag = tDrag.active;
+  if(wasDrag){
+    e.preventDefault();
+    const d = state.dreams[lbDi];
+    if(d && Array.isArray(d.images)){
+      const rect = tDrag.bar.getBoundingClientRect();
+      const step = tDrag.w + 6;
+      let to = Math.round((tDrag.x - rect.left) / step);
+      to = Math.max(0, Math.min(d.images.length - 1, to));
+      moveImgInArray(d.images, tDrag.i, to);
+      syncImgState(lbDi);
+      save(); renderAll(); renderLightbox();
+      toast(tDrag.i === to ? "顺序没变" : "已调整顺序 ✦");
+    }
+  }
+  if(tDrag.clone) tDrag.clone.remove();
+  if(tDrag.bar) tDrag.bar.classList.remove("dragging");
+  tDrag = null;
+}
+function lbSetCover(i){
+  const d = state.dreams[lbDi]; if(!d || !Array.isArray(d.images) || !d.images[i]) return;
+  moveImgInArray(d.images, i, 0);
+  syncImgState(lbDi); lbIdx = 0;
+  save(); renderAll(); renderLightbox();
+  toast("已设为封面 ✦");
+}
 function bindPhotoSwipe(){
   const el = $("lbPhoto"); if(!el || el.dataset.swipe) return; el.dataset.swipe="1";
   let sx=0, dx=0, active=false;
@@ -1745,7 +1858,7 @@ window.DB = {
   addTimeFlow, toggleTF, delTF, shiftDay,
   addDiary, delDiary, addCard, delCard,
   syncUpload, syncDownload, syncUploadAuto,
-  tapTile, openLightbox, closeLightbox, lbNav, lbNavTo, lbRemoveImg, lbBgClose
+  tapTile, openLightbox, closeLightbox, lbNav, lbNavTo, lbRemoveImg, lbBgClose, lbSetCover
 };
 initTheme();
 switchTab(state.tab || "vision");
