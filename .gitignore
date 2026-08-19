@@ -1,0 +1,5 @@
+.workbuddy/
+*.log
+.DS_Store
+Thumbs.db
+# 编辑/工作目录不进版本库
