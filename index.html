@@ -197,14 +197,21 @@ input[type="time"]::-webkit-calendar-picker-indicator{opacity:.5}
 /* ============ ② 满屏 Collage（拍立得世界） ============ */
 .collage{margin:26px 0 4px;columns:2;column-gap:13px}
 .tile{
-  break-inside:avoid;display:block;width:100%;margin-bottom:15px;
+  break-inside:avoid;display:block;width:100%;margin-bottom:13px;
   background:var(--card);border-radius:4px;overflow:hidden;
   box-shadow:var(--shadow);
   position:relative;transform:rotate(var(--rot,0deg));
   transition:transform .22s cubic-bezier(.22,.8,.3,1), box-shadow .22s;
-  text-align:left;padding:8px 8px 0;
+  text-align:left;padding:4px 4px 4px;cursor:pointer;
 }
 .tile:active{transform:rotate(0deg) scale(.975)}
+.tile.tap-hint::after{
+  content:"轻点查看 · 双击换图";position:absolute;left:50%;bottom:42%;transform:translateX(-50%);
+  font-size:10.5px;letter-spacing:.05em;color:rgba(255,255,255,.85);
+  background:rgba(20,16,11,.55);padding:3px 10px;border-radius:99px;
+  opacity:0;transition:opacity .2s;pointer-events:none;z-index:4;white-space:nowrap;
+}
+.tile.tap-hint:hover::after{opacity:1}
 /* 胶带角 */
 .tile::before{
   content:"";position:absolute;top:-9px;left:50%;transform:translateX(-50%) rotate(-1.5deg);
@@ -226,23 +233,31 @@ input[type="time"]::-webkit-calendar-picker-indicator{opacity:.5}
 .tile.r-tall .tile-photo,.tile.r-tall .tile-fallback{aspect-ratio:3/5}
 /* 进度环角标 */
 .tile-ring{
-  position:absolute;top:15px;right:15px;z-index:2;
+  position:absolute;top:11px;right:11px;z-index:2;
   background:rgba(252,248,238,.9);border-radius:50%;
   padding:2.5px;box-shadow:0 2px 8px rgba(0,0,0,.16);
   -webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);
 }
 [data-theme="dark"] .tile-ring{background:rgba(42,36,27,.88)}
-/* 信息条（拍立得底部） */
-.tile-info{padding:10px 4px 13px}
-.tile-name{font-family:Georgia,"Songti SC",serif;font-size:15.5px;font-weight:700;letter-spacing:.01em;color:var(--ink)}
-.tile-why{font-size:11.5px;color:var(--ink2);line-height:1.6;margin-top:4px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:30px}
-.tile-meta{
-  display:flex;align-items:center;justify-content:space-between;margin-top:9px;
-  font-size:11px;color:var(--ink2);letter-spacing:.03em;
-  border-top:1px solid var(--line);padding-top:8px;
+/* 紧凑信息浮层（数字直接落在照片底部） */
+.tile-caption{
+  position:absolute;left:0;right:0;bottom:0;z-index:2;
+  padding:26px 10px 9px;pointer-events:none;
+  background:linear-gradient(180deg, rgba(20,16,11,0) 0%, rgba(20,16,11,.62) 78%);
+  color:#FCF8EE;border-radius:0 0 2px 2px;
 }
-.tile-meta b{font-family:Georgia,serif;font-size:14.5px;color:var(--accent);font-weight:700}
-.tile-meta b.green{color:var(--green)}
+.tile-cname{
+  font-family:Georgia,"Songti SC",serif;font-size:13.5px;font-weight:700;
+  line-height:1.35;text-shadow:0 1px 3px rgba(0,0,0,.55);
+}
+.tile-cmeta{
+  display:flex;align-items:baseline;justify-content:space-between;gap:6px;
+  margin-top:3px;font-size:11px;color:rgba(252,248,238,.92);
+  text-shadow:0 1px 2px rgba(0,0,0,.55);
+}
+.tile-cmeta b{font-family:Georgia,serif;font-size:12.5px;color:#FFE0B0;font-weight:700}
+.tile-cmeta b.green{color:#B9D99B}
+.tile-cmeta .tile-unit{opacity:.85;font-size:10.5px}
 /* 文字卡 */
 .tile-text{
   padding:22px 12px;text-align:center;
@@ -468,6 +483,46 @@ input[type="time"]::-webkit-calendar-picker-indicator{opacity:.5}
   width:22px;height:3px;border-radius:0 0 4px 4px;background:var(--accent);
 }
 
+/* ============ 全屏预览（点击卡片展开原貌） ============ */
+.lightbox{
+  position:fixed;inset:0;z-index:110;
+  background:rgba(18,14,10,.82);
+  -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
+  display:flex;align-items:center;justify-content:center;padding:28px;
+  opacity:0;pointer-events:none;transition:opacity .22s ease;
+}
+.lightbox.open{opacity:1;pointer-events:auto}
+.lb-card{
+  max-width:430px;width:100%;max-height:84vh;overflow:auto;
+  background:var(--card);border-radius:16px;box-shadow:0 28px 70px rgba(0,0,0,.45);
+  transform:translateY(16px) scale(.97);transition:transform .28s cubic-bezier(.22,.8,.3,1);
+}
+.lightbox.open .lb-card{transform:none}
+.lb-photo{aspect-ratio:3/4;background:var(--card2);overflow:hidden;display:flex;align-items:center;justify-content:center}
+.lb-photo img{width:100%;height:100%;object-fit:cover;display:block}
+.lb-photo svg{width:46%;height:auto;max-height:72%}
+.lb-body{padding:18px 20px 22px}
+.lb-name{font-family:Georgia,"Songti SC",serif;font-size:21px;font-weight:700;letter-spacing:.01em}
+.lb-why{font-size:14px;color:var(--ink2);margin-top:7px;line-height:1.75}
+.lb-meta{display:flex;align-items:center;justify-content:space-between;margin-top:14px;padding-top:12px;border-top:1px solid var(--line);font-size:13px;color:var(--ink2)}
+.lb-meta .lb-num{font-family:Georgia,serif;font-size:19px;font-weight:700;color:var(--accent)}
+.lb-meta .lb-num.green{color:var(--green)}
+.lb-close{
+  position:absolute;top:16px;right:16px;width:46px;height:46px;border-radius:50%;
+  background:rgba(255,255,255,.16);color:#fff;font-size:20px;z-index:2;
+  display:flex;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,.18);
+}
+.lb-hint{
+  position:absolute;bottom:20px;left:0;right:0;text-align:center;
+  color:rgba(255,255,255,.6);font-size:12px;letter-spacing:.08em;
+}
+.lb-photo .lb-change{
+  position:absolute;right:12px;bottom:12px;min-height:40px;padding:0 14px;border-radius:999px;
+  background:rgba(20,16,11,.62);color:#fff;font-size:12.5px;
+  -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.2);
+}
+.lb-photo{position:relative}
+
 /* Toast */
 .toast{
   position:fixed;left:50%;bottom:86px;transform:translateX(-50%) translateY(20px);
@@ -659,6 +714,9 @@ input[type="time"]::-webkit-calendar-picker-indicator{opacity:.5}
           <label style="margin-bottom:6px">同步密码（加密用，所有设备输入同一个即可）
             <input type="password" id="fSyncPass" placeholder="至少 6 位，如：我的梦想2026" autocomplete="off">
           </label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13.5px;color:var(--ink);margin:2px 0 4px">
+            <input type="checkbox" id="fSyncRemember" style="width:20px;height:20px"> 记住密码（本机自动备份用，仅存此浏览器）
+          </label>
           <p class="set-cap">原理：数据用你的密码加密后，存入 GitHub 仓库（BKmengxiangban）的 sync 目录，云端只有密文看不到内容；换手机时同一密码一键恢复。Token 获取：github.com/settings/tokens → 勾 repo。</p>
           <div class="btn-row" style="margin-top:12px">
             <button type="button" class="btn primary" onclick="DB.syncUpload()">☁ 上传到云端</button>
@@ -708,6 +766,12 @@ input[type="time"]::-webkit-calendar-picker-indicator{opacity:.5}
     设置
   </button>
 </nav>
+
+<div class="lightbox" id="lightbox" onclick="DB.closeLightbox()">
+  <button class="lb-close" onclick="DB.closeLightbox()" aria-label="关闭">✕</button>
+  <div class="lb-card" id="lbCard" onclick="event.stopPropagation()"></div>
+  <p class="lb-hint">点空白处关闭 · 双击卡片可换照片</p>
+</div>
 
 <div class="toast" id="toast"></div>
 
@@ -943,7 +1007,7 @@ const TINTS = {accent:"var(--accent)", green:"var(--green)", gold:"var(--gold)",
 const AR_CYCLE = ["r3-4","r4-5","r1-1","r3-4","r2-3","r4-5","r1-1","r-tall","r3-4","r16-9"];
 function renderCollage(){
   const items = [];
-  state.dreams.forEach((d,i)=>items.push({kind:"dream", data:d, arIdx:i}));
+  state.dreams.forEach((d,i)=>items.push({kind:"dream", data:d, di:i, arIdx:i}));
   state.cards.forEach((c,i)=>items.push({kind:"card", data:c, arIdx:state.dreams.length + i}));
   $("collage").innerHTML = items.map((it, idx) => {
     const arClass = AR_CYCLE[it.arIdx % AR_CYCLE.length];
@@ -954,17 +1018,23 @@ function renderCollage(){
       const visual = d.img
         ? `<span class="tile-photo"><img src="${d.img}" alt="${esc(d.name)}"></span>`
         : `<span class="tile-photo"><span class="tile-fallback">${ICONS[d.icon]||ICONS.heart}</span></span>`;
-      const numHtml = d.unit === "%"
-        ? `<div class="tile-meta"><span>已达成</span><b class="${p>=100?'green':''}">${p}%</b></div>`
-        : `<div class="tile-meta"><span>${esc(d.unit||"")}</span><b class="${p>=100?'green':''}">${fmtNum(d.cur)} / ${fmtNum(d.goal)}</b></div>`;
-      return `<div class="tile ${arClass}">
+      // 紧凑浮层：数字直接落在照片底部（带阴影）
+      const cap = d.unit === "%"
+        ? `<div class="tile-caption">
+            <div class="tile-cname">${esc(d.name)}</div>
+            <div class="tile-cmeta"><span>已达成</span><b class="${p>=100?'green':''}">${p}%</b></div>
+          </div>`
+        : `<div class="tile-caption">
+            <div class="tile-cname">${esc(d.name)}</div>
+            <div class="tile-cmeta">
+              <span><b class="${p>=100?'green':''}">${fmtNum(d.cur)}</b><span class="tile-unit"> / ${fmtNum(d.goal)} ${esc(d.unit||"")}</span></span>
+              <b>${p}%</b>
+            </div>
+          </div>`;
+      return `<div class="tile ${arClass}" data-di="${it.di}" onclick="DB.tapTile(this)" ondblclick="DB.uploadImg(${it.di})" title="轻点查看 · 双击换图">
         ${visual}
-        <span class="tile-ring">${ring(p, 36, 3.6, col)}</span>
-        <div class="tile-info">
-          <div class="tile-name">${esc(d.name)}</div>
-          <div class="tile-why">${esc(d.why) || "在设置里写下它为什么重要"}</div>
-          ${numHtml}
-        </div>
+        <span class="tile-ring">${ring(p, 34, 3.4, col)}</span>
+        ${cap}
       </div>`;
     }else{
       const c = it.data;
@@ -972,6 +1042,31 @@ function renderCollage(){
     }
   }).join("");
 }
+let tileTapTimer = null;
+function tapTile(el){
+  const di = +el.dataset.di;
+  clearTimeout(tileTapTimer);
+  tileTapTimer = setTimeout(()=>openLightbox(di), 260);
+}
+function openLightbox(di){
+  const d = state.dreams[di]; if(!d) return;
+  const p = pct(d.cur, d.goal);
+  const col = TINTS[d.tint] || "var(--accent)";
+  const visual = d.img
+    ? `<div class="lb-photo"><img src="${d.img}" alt="${esc(d.name)}"><button class="lb-change" onclick="DB.uploadImg(${di})">换照片</button></div>`
+    : `<div class="lb-photo">${ICONS[d.icon]||ICONS.heart}<button class="lb-change" onclick="DB.uploadImg(${di})">上传照片</button></div>`;
+  const num = d.unit === "%"
+    ? `<div class="lb-meta"><span>完成度</span><span class="lb-num ${p>=100?'green':''}">${p}%</span></div>`
+    : `<div class="lb-meta"><span>${esc(d.unit||"")}</span><span class="lb-num ${p>=100?'green':''}">${fmtNum(d.cur)} / ${fmtNum(d.goal)}</span></div>`;
+  $("lbCard").innerHTML = `${visual}
+    <div class="lb-body">
+      <div class="lb-name">${esc(d.name)}</div>
+      <div class="lb-why">${esc(d.why) || "在设置里写下它为什么重要"}</div>
+      ${num}
+    </div>`;
+  $("lightbox").classList.add("open");
+}
+function closeLightbox(){ $("lightbox").classList.remove("open"); }
 
 function renderFocus(){
   const habits = state.habits;
@@ -992,12 +1087,33 @@ function renderFocus(){
   }else od.hidden = true;
 }
 function renderBackupHint(){
+  const hint = $("backupHint");
+  const token = getSyncToken();
+  const pass = getSyncPass();
+  // 已配置云同步 → 显示"今日备份状态"，今天没备份时给一键备份按钮
+  if(token && pass){
+    const last = localStorage.getItem(SYNC_TIME_KEY);
+    const syncedToday = last && new Date(Number(last)).toDateString() === new Date().toDateString();
+    if(syncedToday){
+      hint.hidden = false;
+      hint.innerHTML = `<span>☁ 云端已备份 <b>✓</b>，数据安全</span>`;
+    }else{
+      hint.hidden = false;
+      hint.innerHTML = `<span>☁ 今天还没上传云端 · <b>点右侧一键备份</b>，再也不怕丢数据</span><button onclick="DB.syncUploadAuto()">一键备份</button>`;
+    }
+    return;
+  }
+  // 未配置云同步 → 原 30 条导出提示，引导去设置
   let count = 0;
   state.habits.forEach(h => { count += Object.keys(h.days).length; });
   count += state.milestones.length + state.timeflow.length + state.success.length + state.gratitude.length + state.cards.length;
-  const hint = $("backupHint");
-  if(count >= 30 && !state.backupHintDismissed){ $("hintCount").textContent = count; hint.hidden = false; }
-  else hint.hidden = true;
+  if(count >= 30 && !state.backupHintDismissed){
+    $("hintCount").textContent = count;
+    hint.innerHTML = `<span>记录已积累 <b>${count}</b> 条 · <b>建议开启云同步</b>（设置页 ☁ 区）</span><button onclick="DB.switchTab('settings')">去设置</button>`;
+    hint.hidden = false;
+  }else{
+    hint.hidden = true;
+  }
 }
 function renderGoals(){
   const avg = state.goals.length
@@ -1184,6 +1300,7 @@ function buildEditForm(){
   $("fYear").value = state.yearTitle || "";
   $("fName").value = state.name;
   $("fSyncToken").value = getSyncToken();
+  if(getSyncPass()){ $("fSyncPass").value = getSyncPass(); $("fSyncRemember").checked = true; }
   renderSyncStatus();
   $("fDreams").innerHTML = state.dreams.map((d,i)=>`
     <div class="set-item" data-i="${i}">
@@ -1251,6 +1368,10 @@ function collectEdit(){
   state.name = $("fName").value.trim() || "我";
   state.yearTitle = ($("fYear").value || String(new Date().getFullYear())).slice(0,8);
   if($("fSyncToken")) setSyncToken($("fSyncToken").value.trim());
+  if($("fSyncRemember") && $("fSyncPass")){
+    if($("fSyncRemember").checked) setSyncPass($("fSyncPass").value);
+    else removeSyncPass();
+  }
   document.querySelectorAll("#fDreams .set-item").forEach(item => {
     const d = state.dreams[+item.dataset.i]; if(!d) return;
     item.querySelectorAll("[data-k]").forEach(inp => {
@@ -1295,6 +1416,7 @@ function addCard(){
 function delCard(i){ state.cards.splice(i,1); save(); buildEditForm(); renderAll(); toast("已删除"); }
 
 function uploadImg(i){
+  clearTimeout(tileTapTimer);
   const d = state.dreams[i]; if(!d) return;
   const input = document.createElement("input");
   input.type = "file"; input.accept = "image/*";
@@ -1332,8 +1454,12 @@ const SYNC_OWNER = 'mojun413';
 const SYNC_PATH = 'sync/vision-data.json';
 const SYNC_TOKEN_KEY = 'wb_sync_token';
 const SYNC_TIME_KEY = 'wb_sync_time';
+const SYNC_PASS_KEY = 'wb_sync_pass';
 function getSyncToken(){ try{ return localStorage.getItem(SYNC_TOKEN_KEY) || ''; }catch(e){ return ''; } }
 function setSyncToken(t){ try{ localStorage.setItem(SYNC_TOKEN_KEY, t); }catch(e){} }
+function getSyncPass(){ try{ return localStorage.getItem(SYNC_PASS_KEY) || ''; }catch(e){ return ''; } }
+function setSyncPass(p){ try{ localStorage.setItem(SYNC_PASS_KEY, p); }catch(e){} }
+function removeSyncPass(){ try{ localStorage.removeItem(SYNC_PASS_KEY); }catch(e){} }
 function setSyncTime(ts){ try{ localStorage.setItem(SYNC_TIME_KEY, String(ts)); }catch(e){} }
 function b64FromBytes(buf){ let s=''; const c=new Uint8Array(buf); for(let i=0;i<c.length;i++) s+=String.fromCharCode(c[i]); return btoa(s); }
 function bytesFromB64(str){ const s=atob(str); const c=new Uint8Array(s.length); for(let i=0;i<s.length;i++) c[i]=s.charCodeAt(i); return c; }
@@ -1427,6 +1553,17 @@ function renderSyncStatus(){
   const t = localStorage.getItem(SYNC_TIME_KEY);
   ui.textContent = t ? "上次上传：" + new Date(Number(t)).toLocaleString('zh-CN',{hour12:false}) : "";
 }
+async function syncUploadAuto(){
+  const token = getSyncToken();
+  const pass = getSyncPass();
+  if(!token || !pass){
+    toast("先到「设置」里配置云同步并勾选记住密码");
+    switchTab("settings");
+    return;
+  }
+  $("fSyncPass").value = pass;
+  await syncUpload();
+}
 
 function exportJSON(){
   collectEdit();
@@ -1476,7 +1613,8 @@ window.DB = {
   saveEdit, uploadImg, removeImg, pickTheme,
   addTimeFlow, toggleTF, delTF, shiftDay,
   addDiary, delDiary, addCard, delCard,
-  syncUpload, syncDownload
+  syncUpload, syncDownload, syncUploadAuto,
+  tapTile, openLightbox, closeLightbox
 };
 initTheme();
 switchTab(state.tab || "vision");
