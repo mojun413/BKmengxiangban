@@ -651,6 +651,23 @@ input[type="time"]::-webkit-calendar-picker-indicator{opacity:.5}
         <textarea id="fClosing"></textarea>
       </section>
       <section class="set-sec">
+        <h4>☁ 云同步（再也不怕丢数据）</h4>
+        <div class="set-item">
+          <label style="margin-bottom:10px">GitHub Token（每台设备输入一次，仅存本机浏览器）
+            <input type="password" id="fSyncToken" placeholder="ghp_..." autocomplete="off">
+          </label>
+          <label style="margin-bottom:6px">同步密码（加密用，所有设备输入同一个即可）
+            <input type="password" id="fSyncPass" placeholder="至少 6 位，如：我的梦想2026" autocomplete="off">
+          </label>
+          <p class="set-cap">原理：数据用你的密码加密后，存入 GitHub 仓库（BKmengxiangban）的 sync 目录，云端只有密文看不到内容；换手机时同一密码一键恢复。Token 获取：github.com/settings/tokens → 勾 repo。</p>
+          <div class="btn-row" style="margin-top:12px">
+            <button type="button" class="btn primary" onclick="DB.syncUpload()">☁ 上传到云端</button>
+            <button type="button" class="btn" onclick="DB.syncDownload()">☁ 从云端恢复</button>
+          </div>
+          <p class="set-cap" id="syncStatus" style="color:var(--gold);font-weight:600"></p>
+        </div>
+      </section>
+      <section class="set-sec">
         <h4>数据备份（换手机 / 清浏览器前先导出）</h4>
         <div class="btn-row">
           <button type="button" class="btn" onclick="DB.exportJSON()">导出备份</button>
@@ -1166,6 +1183,8 @@ const COLOR_OPTS = [["accent","陶土"],["green","苔绿"],["gold","金黄"],["b
 function buildEditForm(){
   $("fYear").value = state.yearTitle || "";
   $("fName").value = state.name;
+  $("fSyncToken").value = getSyncToken();
+  renderSyncStatus();
   $("fDreams").innerHTML = state.dreams.map((d,i)=>`
     <div class="set-item" data-i="${i}">
       <div class="ei-grid">
@@ -1231,6 +1250,7 @@ function buildEditForm(){
 function collectEdit(){
   state.name = $("fName").value.trim() || "我";
   state.yearTitle = ($("fYear").value || String(new Date().getFullYear())).slice(0,8);
+  if($("fSyncToken")) setSyncToken($("fSyncToken").value.trim());
   document.querySelectorAll("#fDreams .set-item").forEach(item => {
     const d = state.dreams[+item.dataset.i]; if(!d) return;
     item.querySelectorAll("[data-k]").forEach(inp => {
@@ -1306,6 +1326,108 @@ function removeImg(i){
   d.img = null; save(); buildEditForm(); renderAll(); toast("已恢复手绘插画");
 }
 
+/* ===== 云同步：加密数据存到 GitHub 仓库（云端只存密文） ===== */
+const SYNC_REPO = 'BKmengxiangban';
+const SYNC_OWNER = 'mojun413';
+const SYNC_PATH = 'sync/vision-data.json';
+const SYNC_TOKEN_KEY = 'wb_sync_token';
+const SYNC_TIME_KEY = 'wb_sync_time';
+function getSyncToken(){ try{ return localStorage.getItem(SYNC_TOKEN_KEY) || ''; }catch(e){ return ''; } }
+function setSyncToken(t){ try{ localStorage.setItem(SYNC_TOKEN_KEY, t); }catch(e){} }
+function setSyncTime(ts){ try{ localStorage.setItem(SYNC_TIME_KEY, String(ts)); }catch(e){} }
+function b64FromBytes(buf){ let s=''; const c=new Uint8Array(buf); for(let i=0;i<c.length;i++) s+=String.fromCharCode(c[i]); return btoa(s); }
+function bytesFromB64(str){ const s=atob(str); const c=new Uint8Array(s.length); for(let i=0;i<s.length;i++) c[i]=s.charCodeAt(i); return c; }
+async function syncDeriveKey(pass, salt){
+  const km = await crypto.subtle.importKey('raw', new TextEncoder().encode(pass), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey(
+    {name:'PBKDF2', salt, iterations:120000, hash:'SHA-256'},
+    km, {name:'AES-GCM', length:256}, false, ['encrypt','decrypt']);
+}
+async function syncEncrypt(jsonStr, pass){
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const key = await syncDeriveKey(pass, salt);
+  const ct = await crypto.subtle.encrypt({name:'AES-GCM', iv}, key, new TextEncoder().encode(jsonStr));
+  return JSON.stringify({v:1, salt:b64FromBytes(salt), iv:b64FromBytes(iv), ct:b64FromBytes(new Uint8Array(ct))});
+}
+async function syncDecrypt(payloadStr, pass){
+  const p = JSON.parse(payloadStr);
+  const key = await syncDeriveKey(pass, bytesFromB64(p.salt));
+  const pt = await crypto.subtle.decrypt({name:'AES-GCM', iv:bytesFromB64(p.iv)}, key, bytesFromB64(p.ct));
+  return new TextDecoder().decode(pt);
+}
+function syncToB64(str){ return btoa(unescape(encodeURIComponent(str))); }
+function syncFromB64(b){ return decodeURIComponent(escape(atob(b))); }
+async function syncGh(path, opts, token){
+  try{
+    const res = await fetch('https:' + '//api.github.com' + path, {
+      headers: {'Authorization':'Bearer '+token, 'Accept':'application/vnd.github+json', 'User-Agent':'vision-board-sync', ...(opts.headers||{})},
+      method: opts.method || 'GET', body: opts.body
+    });
+    return {status: res.status, data: await res.json().catch(()=>null)};
+  }catch(e){ return {status:-1, data:{err:e.message}}; }
+}
+async function syncUpload(){
+  collectEdit();
+  const token = getSyncToken();
+  const pass = $("fSyncPass").value;
+  if(!token){ toast("先粘贴你的 GitHub Token"); return; }
+  if(pass.length < 6){ toast("同步密码至少 6 位"); return; }
+  const ui = $("syncStatus");
+  ui.textContent = "正在加密上传…";
+  try{
+    const payload = await syncEncrypt(JSON.stringify(state), pass);
+    const content = syncToB64(payload);
+    const exist = await syncGh('/repos/'+SYNC_OWNER+'/'+SYNC_REPO+'/contents/'+SYNC_PATH, {}, token);
+    const body = {message:'sync: vision board', content};
+    if(exist.status === 200 && exist.data && exist.data.sha) body.sha = exist.data.sha;
+    const up = await syncGh('/repos/'+SYNC_OWNER+'/'+SYNC_REPO+'/contents/'+SYNC_PATH,
+      {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)}, token);
+    if(up.status === 200 || up.status === 201){
+      setSyncTime(Date.now());
+      ui.textContent = "✓ 已上传云端：" + new Date().toLocaleString('zh-CN',{hour12:false});
+      toast("已上传云端，放心 ✦");
+    }else{
+      ui.textContent = "上传失败(" + up.status + ")：检查 Token 是否有 repo 权限";
+      toast("上传失败，检查 Token");
+    }
+  }catch(e){ ui.textContent = "上传出错：" + e.message; toast("上传出错"); }
+}
+async function syncDownload(){
+  const pass = $("fSyncPass").value;
+  const ui = $("syncStatus");
+  if(pass.length < 6){ toast("输入同步密码"); return; }
+  ui.textContent = "正在从云端拉取…";
+  try{
+    const res = await syncGh('/repos/'+SYNC_OWNER+'/'+SYNC_REPO+'/contents/'+SYNC_PATH, {}, getSyncToken() || '');
+    if(res.status === 404){ ui.textContent = "云端还没有备份，先点「上传到云端」"; toast("云端暂无备份"); return; }
+    if(res.status !== 200){ ui.textContent = "拉取失败(" + res.status + ")"; return; }
+    const payloadStr = syncFromB64(res.data.content);
+    let jsonStr;
+    try{ jsonStr = await syncDecrypt(payloadStr, pass); }
+    catch(e){ ui.textContent = "密码不对，无法解密（或云端数据损坏）"; toast("密码不对"); return; }
+    const p = JSON.parse(jsonStr);
+    if(!p.dreams && !p.goals) throw new Error("bad");
+    const oldTheme = state.theme;
+    state = Object.assign(load(), p);
+    state.theme = oldTheme;
+    if(!Array.isArray(state.timeflow)) state.timeflow = [];
+    if(!Array.isArray(state.success)) state.success = [];
+    if(!Array.isArray(state.gratitude)) state.gratitude = [];
+    if(!Array.isArray(state.cards)) state.cards = [];
+    (state.dreams||[]).forEach(x => { if(x.img === undefined) x.img = null; });
+    save(); renderAll();
+    ui.textContent = "✓ 已从云端恢复：" + new Date().toLocaleString('zh-CN',{hour12:false});
+    toast("已从云端恢复 ✦");
+  }catch(e){ ui.textContent = "恢复出错：" + e.message; toast("恢复出错"); }
+}
+function renderSyncStatus(){
+  const ui = $("syncStatus");
+  if(!ui) return;
+  const t = localStorage.getItem(SYNC_TIME_KEY);
+  ui.textContent = t ? "上次上传：" + new Date(Number(t)).toLocaleString('zh-CN',{hour12:false}) : "";
+}
+
 function exportJSON(){
   collectEdit();
   const blob = new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
@@ -1353,7 +1475,8 @@ window.DB = {
   switchTab, toggleHabit, exportJSON, importJSON, resetDemo, clearAll, dismissHint,
   saveEdit, uploadImg, removeImg, pickTheme,
   addTimeFlow, toggleTF, delTF, shiftDay,
-  addDiary, delDiary, addCard, delCard
+  addDiary, delDiary, addCard, delCard,
+  syncUpload, syncDownload
 };
 initTheme();
 switchTab(state.tab || "vision");
