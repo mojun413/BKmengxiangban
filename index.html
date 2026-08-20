@@ -788,7 +788,7 @@ input[type="time"]::-webkit-calendar-picker-indicator{opacity:.5}
       <footer class="closing">
         <p class="closing-line" id="closingLine"></p>
         <p class="closing-sub" id="closingSub"></p>
-        <p class="closing-hint">v32 · 数据保存在你的设备上 · 底部「设置」可编辑与备份 ✦</p>
+        <p class="closing-hint">v33 · 数据保存在你的设备上 · 底部「设置」可编辑与备份 ✦</p>
         <div class="backup-hint" id="backupHint" hidden style="max-width:520px;margin:22px auto 0">
           <span>记录已积累 <b id="hintCount">0</b> 条，建议在「设置」里导出备份 ✦</span>
           <button onclick="DB.dismissHint()">知道了</button>
@@ -1281,6 +1281,7 @@ function switchTab(name){
   state.tab = name; save();
   document.querySelectorAll(".tab-btn").forEach(b => b.classList.toggle("active", b.dataset.tab === name));
   document.querySelectorAll(".view").forEach(v => v.classList.toggle("active", v.id === "view-" + name));
+  if(name !== "vision") stopCoverRotate(); // 切走即停封面轮换
   if(name === "settings") buildEditForm();
   renderAll();
   window.scrollTo({top:0, behavior:"instant"});
@@ -1295,6 +1296,7 @@ function renderVision(){
   renderFocus();
   renderBackupHint();
   renderCollage();
+  startCoverRotate();
   renderGoals();
   renderRhythm();
   renderTimeline();
@@ -1314,7 +1316,7 @@ function renderCollage(){
       const p = pct(d.cur, d.goal);
       const col = TINTS[d.tint] || "var(--accent)";
       const visual = imgs.length
-        ? `<span class="tile-photo"><img src="${imgs[0]}" alt="${esc(d.name)}" draggable="false" onload="DB.relayoutMasonry()" onerror="DB.relayoutMasonry()"></span>`
+        ? `<span class="tile-photo"><img src="${imgs[0]}" data-idx="0" alt="${esc(d.name)}" draggable="false" onload="DB.relayoutMasonry()" onerror="DB.relayoutMasonry()"></span>`
         : `<span class="tile-photo"><span class="tile-fallback">${ICONS[d.icon]||ICONS.heart}</span></span>`;
       // 紧凑浮层：数字直接落在照片底部（带阴影）
       const cap = d.unit === "%"
@@ -1352,6 +1354,40 @@ function renderCollage(){
   $("collage").innerHTML = html;
   layoutMasonry();
 }
+/* ===== 封面自动随机轮换：愿景板页面上，每张多图卡片的主图每隔几秒随机换一张（纯视觉，不改数据） ===== */
+const COVER_ROTATE_MS = 4000;
+let coverRotateTimer = null;
+function startCoverRotate(){
+  stopCoverRotate();
+  if(!document.getElementById("collage")) return;
+  coverRotateTimer = setInterval(() => {
+    try{
+      document.querySelectorAll("#collage .tile[data-di] .tile-photo img").forEach(img => {
+        const tile = img.closest(".tile");
+        if(!tile) return;
+        const di = +tile.dataset.di;
+        const d = state.dreams[di];
+        if(!d) return;
+        const imgs = Array.isArray(d.images) && d.images.length ? d.images : (d.img ? [d.img] : []);
+        if(imgs.length < 2) return;
+        // 随机选一张和当前不同的
+        let next = Math.floor(Math.random() * imgs.length);
+        const cur = +img.dataset.idx || 0;
+        if(next === cur) next = (next + 1) % imgs.length;
+        // 淡出旧图 → 换 src → 淡入
+        img.style.transition = "opacity .22s ease";
+        img.style.opacity = "0";
+        setTimeout(() => {
+          img.src = imgs[next];
+          img.dataset.idx = String(next);
+          img.style.opacity = "1";
+          setTimeout(() => { img.style.transition = ""; }, 240);
+        }, 220);
+      });
+    }catch(e){}
+  }, COVER_ROTATE_MS);
+}
+function stopCoverRotate(){ clearInterval(coverRotateTimer); coverRotateTimer = null; }
 /* ===== JS 瀑布流：每列高度独立（最矮列优先），顺序从左到右逐张落下 ===== */
 function layoutMasonry(){
   const c = $("collage"); if(!c || !c.offsetWidth) return;
@@ -1447,6 +1483,7 @@ function chCancel(){ clearTimeout(holdTimer); holdEl = null; }
 let lbIdx = 0, lbDi = -1;
 function lbImgs(di){ const d=state.dreams[di]; if(!d) return []; let imgs = Array.isArray(d.images) ? d.images : (d.img ? [d.img] : []); if(!imgs.length && d.icon){ /* 用插画做第一张占位 */ } return imgs; }
 function openLightbox(di, idx){
+  stopCoverRotate(); // 打开灯箱先暂停封面轮换，避免和灯箱查看打架
   lbDi = di; lbIdx = idx || 0;
   const d = state.dreams[di]; if(!d) return;
   const imgs = lbImgs(di);
@@ -1548,7 +1585,7 @@ function lbBgClose(e){
   // 仅当点击点在 .lightbox 自身（不在 .lb-card 内部）时关闭
   if(e.target.id === "lightbox") closeLightbox();
 }
-function closeLightbox(){ $("lightbox").classList.remove("open"); }
+function closeLightbox(){ $("lightbox").classList.remove("open"); if(state.tab === "vision") startCoverRotate(); }
 function moveImgInArray(arr, from, to){
   if(from === to) return;
   const it = arr.splice(from, 1)[0];
