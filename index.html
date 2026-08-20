@@ -202,11 +202,11 @@ input[type="time"]::-webkit-calendar-picker-indicator{opacity:.5}
 .backup-hint button{color:var(--ink2);font-size:13px;min-width:44px;min-height:44px}
 
 /* ============ ② 满屏 Collage（拍立得世界） ============ */
-.collage{margin:26px 0 4px;columns:var(--vcols,2);column-gap:13px}
+.collage{margin:26px 0 4px;display:grid;grid-template-columns:repeat(var(--vcols,2),minmax(0,1fr));gap:13px;align-items:start}
 .collage .tile{-webkit-user-drag:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
 .collage .tile img{pointer-events:none}
 .tile{
-  break-inside:avoid;display:block;width:100%;margin-bottom:13px;
+  display:block;width:100%;margin-bottom:0;
   background:var(--card);border-radius:var(--vrad,4px);overflow:hidden;
   box-shadow:var(--shadow);
   position:relative;transform:rotate(var(--rot,0deg));
@@ -662,13 +662,12 @@ input[type="time"]::-webkit-calendar-picker-indicator{opacity:.5}
 .ring .ring-sub{font-family:inherit;fill:var(--ink2)}
 
 @media (min-width:600px){
-  .collage{columns:3;column-gap:15px}
-  .tile{margin-bottom:16px}
+  .collage{grid-template-columns:repeat(3,minmax(0,1fr));gap:15px}
   .app{padding-top:10px}
 }
 @media (min-width:960px){
   .app{max-width:760px}
-  .collage{columns:3}
+  .collage{grid-template-columns:repeat(3,minmax(0,1fr))}
   .hero-strength{font-size:18.5px}
   .year-stamp{font-size:clamp(72px, 10vw, 96px)}
   .collage .tile:hover{
@@ -750,7 +749,7 @@ input[type="time"]::-webkit-calendar-picker-indicator{opacity:.5}
       <footer class="closing">
         <p class="closing-line" id="closingLine"></p>
         <p class="closing-sub" id="closingSub"></p>
-        <p class="closing-hint">v26 · 数据保存在你的设备上 · 底部「设置」可编辑与备份 ✦</p>
+        <p class="closing-hint">v27 · 数据保存在你的设备上 · 底部「设置」可编辑与备份 ✦</p>
       </footer>
     </section>
 
