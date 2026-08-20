@@ -819,6 +819,7 @@ input[type="time"]::-webkit-calendar-picker-indicator{opacity:.5}
       <section class="set-sec">
         <h4>习惯打卡</h4>
         <div id="fHabits"></div>
+        <button type="button" class="btn" style="width:100%;min-height:44px;font-size:14px;background:var(--card2);border:1px dashed var(--line2);color:var(--ink2)" onclick="DB.addHabit()">＋ 新增一个习惯</button>
       </section>
       <section class="set-sec">
         <h4>里程碑</h4>
@@ -846,11 +847,8 @@ input[type="time"]::-webkit-calendar-picker-indicator{opacity:.5}
           <label style="display:flex;align-items:center;gap:8px;font-size:13.5px;color:var(--ink);margin:2px 0 4px">
             <input type="checkbox" id="fSyncRemember" style="width:20px;height:20px"> 记住密码（本机自动备份用，仅存此浏览器）
           </label>
-          <p class="set-cap"><b style="color:var(--green)">换设备恢复：只需上面这个密码</b>（数据存在你的公开仓库，读取无需 Token）。</p>
-          <label style="margin-bottom:6px;margin-top:8px">GitHub Token（<b>仅上传需要</b>，在一台主设备填一次即可）
-            <input type="password" id="fSyncToken" placeholder="ghp_..." autocomplete="off">
-          </label>
-          <p class="set-cap">Token 是 GitHub 的安全要求（无法只用密码写入），但只需一台设备配置；其他设备恢复只要密码。获取：github.com/settings/tokens → 勾 repo。</p>
+          <p class="set-cap"><b style="color:var(--green)">换设备恢复：只需上面这个密码</b>，无需 Token。数据用密码加密（AES-256）后存入你自己的 Supabase 云端，云端只有密文。</p>
+          <p class="set-cap">勾选「记住密码」后：本机每次改动会自动同步到云端，打开页面也会自动拉取其他设备的最新数据——全程不用再操作。</p>
           <div class="btn-row" style="margin-top:12px">
             <button type="button" class="btn primary" onclick="DB.syncUpload()">上传到云端</button>
             <button type="button" class="btn" onclick="DB.syncDownload()">从云端恢复</button>
@@ -1122,7 +1120,7 @@ function load(){
     };
   }catch(e){ return demoState(); }
 }
-function save(){ localStorage.setItem(LS_KEY, JSON.stringify(state)); }
+function save(){ localStorage.setItem(LS_KEY, JSON.stringify(state)); if(typeof scheduleCloudPush === 'function') scheduleCloudPush(); }
 
 const $ = id => document.getElementById(id);
 function fmtNum(n){ return Number(n||0).toLocaleString("zh-CN"); }
@@ -1479,10 +1477,9 @@ function renderFocus(){
 }
 function renderBackupHint(){
   const hint = $("backupHint");
-  const token = getSyncToken();
   const pass = getSyncPass();
   // 已配置云同步 → 显示"今日备份状态"，今天没备份时给一键备份按钮
-  if(token && pass){
+  if(pass){
     const last = localStorage.getItem(SYNC_TIME_KEY);
     const syncedToday = last && new Date(Number(last)).toDateString() === new Date().toDateString();
     if(syncedToday){
@@ -1662,6 +1659,15 @@ function toggleHabit(id){
   else { h.days[t] = true; toast("打卡成功 ✦"); }
   save(); renderVision();
 }
+function addHabit(){
+  state.habits.push({id:"h"+Date.now(), name:"新习惯", icon:"run", days:{}});
+  save(); buildEditForm(); renderAll(); toast("已添加新习惯，可在设置里改名");
+}
+function delHabit(i){
+  const h = state.habits[i]; if(!h) return;
+  if(!confirm("删除习惯「"+h.name+"」？它的全部打卡记录会一并删除")) return;
+  state.habits.splice(i,1); save(); buildEditForm(); renderAll(); toast("已删除");
+}
 
 function initTheme(){ applyTheme(state.theme || "auto"); }
 function applyTheme(t){ document.documentElement.setAttribute("data-theme", t); }
@@ -1727,7 +1733,6 @@ const COLOR_OPTS = [["accent","陶土"],["green","苔绿"],["gold","金黄"],["b
 function buildEditForm(){
   $("fYear").value = state.yearTitle || "";
   $("fName").value = state.name;
-  $("fSyncToken").value = getSyncToken();
   if(getSyncPass()){ $("fSyncPass").value = getSyncPass(); $("fSyncRemember").checked = true; }
   renderSyncStatus();
   renderViewOpts();
@@ -1749,7 +1754,12 @@ function buildEditForm(){
         <input type="text" data-k="name" value="${esc(h.name)}" placeholder="习惯名">
         <select data-k="icon">${iconOptions(h.icon)}</select>
       </div>
-      <p style="font-size:12px;color:var(--ink2)">已有打卡 ${Object.keys(h.days).length} 天 · 记录自动保留</p>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px">
+        <p style="font-size:12px;color:var(--ink2);margin:0">已有打卡 ${Object.keys(h.days).length} 天 · 记录自动保留</p>
+        <button type="button" class="mini del" onclick="DB.delHabit(${i})" title="删除这个习惯" style="min-height:36px;min-width:36px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M4.5 7h15M10 4h4M7.5 7l1 13h7l1-13M10 11v5M14 11v5"/></svg>
+        </button>
+      </div>
     </div>`).join("");
   $("fMiles").innerHTML = state.milestones.map((m,i)=>`
     <div class="set-item" data-i="${i}">
@@ -1768,7 +1778,6 @@ function buildEditForm(){
 function collectEdit(){
   state.name = $("fName").value.trim() || "我";
   state.yearTitle = ($("fYear").value || String(new Date().getFullYear())).slice(0,8);
-  if($("fSyncToken")) setSyncToken($("fSyncToken").value.trim());
   if($("fSyncRemember") && $("fSyncPass")){
     if($("fSyncRemember").checked) setSyncPass($("fSyncPass").value);
     else removeSyncPass();
@@ -1886,19 +1895,30 @@ function removeImg(i){
   toast("已清空该卡照片");
 }
 
-/* ===== 云同步：加密数据存到 GitHub 仓库（云端只存密文） ===== */
-const SYNC_REPO = 'BKmengxiangban';
-const SYNC_OWNER = 'mojun413';
-const SYNC_PATH = 'sync/vision-data.json';
-const SYNC_TOKEN_KEY = 'wb_sync_token';
+/* ===== 云同步：数据加密后存到 Supabase 云端（免 Token，密码即可） ===== */
+const SYNC_URL = 'https://udkxzpkdobfqlqtlghyk.supabase.co';
+const SYNC_ANON = 'sb_publishable_L8CWo3B6l4ZLo-aZLPqL0A_6l05sSKu';
+const SYNC_TABLE = 'vision_state';
 const SYNC_TIME_KEY = 'wb_sync_time';
 const SYNC_PASS_KEY = 'wb_sync_pass';
-function getSyncToken(){ try{ return localStorage.getItem(SYNC_TOKEN_KEY) || ''; }catch(e){ return ''; } }
-function setSyncToken(t){ try{ localStorage.setItem(SYNC_TOKEN_KEY, t); }catch(e){} }
+const SYNC_REMOTE_KEY = 'wb_sync_remote';
 function getSyncPass(){ try{ return localStorage.getItem(SYNC_PASS_KEY) || ''; }catch(e){ return ''; } }
 function setSyncPass(p){ try{ localStorage.setItem(SYNC_PASS_KEY, p); }catch(e){} }
 function removeSyncPass(){ try{ localStorage.removeItem(SYNC_PASS_KEY); }catch(e){} }
 function setSyncTime(ts){ try{ localStorage.setItem(SYNC_TIME_KEY, String(ts)); }catch(e){} }
+async function sbFetch(method, query, body){
+  const headers = {'apikey':SYNC_ANON, 'Authorization':'Bearer '+SYNC_ANON, 'Accept':'application/json'};
+  if(method === 'POST' || method === 'PATCH'){
+    headers['Content-Type'] = 'application/json';
+    headers['Prefer'] = 'resolution=merge-duplicates,return=representation';
+  }
+  try{
+    const res = await fetch(SYNC_URL + '/rest/v1/' + SYNC_TABLE + (query||''), {
+      method, headers, body: body ? JSON.stringify(body) : undefined
+    });
+    return {status: res.status, data: await res.json().catch(()=>null)};
+  }catch(e){ return {status:-1, data:{err:e.message}}; }
+}
 function b64FromBytes(buf){ let s=''; const c=new Uint8Array(buf); for(let i=0;i<c.length;i++) s+=String.fromCharCode(c[i]); return btoa(s); }
 function bytesFromB64(str){ const s=atob(str); const c=new Uint8Array(s.length); for(let i=0;i<s.length;i++) c[i]=s.charCodeAt(i); return c; }
 async function syncDeriveKey(pass, salt){
@@ -1922,25 +1942,12 @@ async function syncDecrypt(payloadStr, pass){
 }
 function syncToB64(str){ return btoa(unescape(encodeURIComponent(str))); }
 function syncFromB64(b){ return decodeURIComponent(escape(atob(b))); }
-async function syncGh(path, opts, token){
-  try{
-    const headers = {'Accept':'application/vnd.github+json', 'User-Agent':'vision-board-sync', ...(opts.headers||{})};
-    // 读取公开仓库无需认证；有 token 才带上（避免空 Bearer 导致 401）
-    if(token) headers['Authorization'] = 'Bearer ' + token;
-    const res = await fetch('https:' + '//api.github.com' + path, {
-      headers, method: opts.method || 'GET', body: opts.body
-    });
-    return {status: res.status, data: await res.json().catch(()=>null)};
-  }catch(e){ return {status:-1, data:{err:e.message}}; }
-}
-async function syncUpload(){
+async function syncUpload(quiet){
   collectEdit();
-  const token = getSyncToken();
-  const pass = $("fSyncPass").value;
-  if(!token){ toast("先粘贴你的 GitHub Token"); return; }
-  if(pass.length < 6){ toast("同步密码至少 6 位"); return; }
+  const pass = $("fSyncPass").value || getSyncPass();
+  if(pass.length < 6){ toast("先设置同步密码（至少 6 位）"); switchTab("settings"); return; }
   const ui = $("syncStatus");
-  ui.textContent = "正在压缩并加密上传…";
+  if(ui) ui.textContent = "正在压缩并加密上传…";
   try{
     // 图片压缩为低清副本（同步体积小，本地高清图不受影响）
     const syncState = JSON.parse(JSON.stringify(state));
@@ -1953,48 +1960,32 @@ async function syncUpload(){
     }
     const payload = await syncEncrypt(JSON.stringify(syncState), pass);
     const content = syncToB64(payload);
-    // 上传（版本号拿不到就中止；422 冲突时重取最新版本号，最多 3 轮）
-    let up = null;
-    for(let attempt = 0; attempt < 3; attempt++){
-      // 1) 拿最新版本号 sha（404=云端还没有此文件，直接创建无需 sha）
-      let sha = null, exist = null;
-      for(let g = 0; g < 3; g++){
-        exist = await syncGh('/repos/'+SYNC_OWNER+'/'+SYNC_REPO+'/contents/'+SYNC_PATH, {}, token);
-        if(exist.status === 200 && exist.data && exist.data.sha){ sha = exist.data.sha; break; }
-        if(exist.status === 404){ break; }
-        await new Promise(r => setTimeout(r, 1500));
-      }
-      if(exist && exist.status !== 200 && exist.status !== 404){
-        ui.textContent = "连接 GitHub 失败(" + exist.status + ")：网络波动或请求受限，请稍后再传";
-        toast("连接 GitHub 失败，稍后再试");
-        return;
-      }
-      // 2) 上传（带 sha=更新；不带 sha=新建）
-      const body = {message:'sync: vision board', content};
-      if(sha) body.sha = sha;
-      up = await syncGh('/repos/'+SYNC_OWNER+'/'+SYNC_REPO+'/contents/'+SYNC_PATH,
-        {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)}, token);
-      if(up.status !== 422) break;
-      // 3) 422 = 版本冲突/版本号缺失 → 下一轮重新拿最新版本号
-    }
+    // 上传（单行 id=1 upsert 覆盖，天然无冲突）
+    const up = await sbFetch('POST', '', [{id:1, data:{p:content}, updated_at:new Date().toISOString()}]);
     if(up.status === 200 || up.status === 201){
-      setSyncTime(Date.now());
-      ui.textContent = "✓ 已上传云端：" + new Date().toLocaleString('zh-CN',{hour12:false});
-      toast("已上传云端，放心 ✦");
-    }else if(up.status === 401){
-      ui.textContent = "Token 无效或已过期，请到 github.com/settings/tokens 重新生成（勾 repo）";
-      toast("Token 失效");
-    }else if(up.status === 403){
-      ui.textContent = "Token 没有写入权限：生成时记得勾选 repo 权限";
-      toast("Token 权限不足");
-    }else if(up.status === 422){
-      ui.textContent = "上传冲突(422)：" + ((up.data && up.data.message) || "文件可能过大，稍后再试");
-      toast("上传冲突，已重试仍失败");
+      const row = Array.isArray(up.data) && up.data[0] ? up.data[0] : null;
+      const serverTs = row && row.updated_at ? new Date(row.updated_at).getTime() : Date.now();
+      setSyncTime(serverTs);
+      try{ localStorage.setItem(SYNC_REMOTE_KEY, String(serverTs)); }catch(e){}
+      if(ui) ui.textContent = "✓ 已同步：" + new Date().toLocaleString('zh-CN',{hour12:false});
+      if(!quiet) toast("已同步到云端 ✦");
+      return true;
+    }else if(up.status === 401 || up.status === 403){
+      if(ui) ui.textContent = "同步失败(" + up.status + ")：数据库未建或未授权——请先在 Supabase SQL 里执行建表语句";
+      if(!quiet) toast("需要先建表（见说明）");
+    }else if(up.status === -1){
+      if(ui) ui.textContent = "网络连接失败，请检查网络后重试";
+      if(!quiet) toast("网络连接失败");
+    }else if(up.status === 404){
+      if(ui) ui.textContent = "云端数据库表还没创建：请先在 Supabase SQL 里执行建表语句（见交付说明）";
+      if(!quiet) toast("请先执行建表 SQL");
     }else{
-      ui.textContent = "上传失败(" + up.status + ")，请稍后重试";
-      toast("上传失败(" + up.status + ")");
+      const msg = (up.data && (up.data.message || up.data.details || up.data.hint)) || "请稍后重试";
+      if(ui) ui.textContent = "同步失败(" + up.status + ")：" + msg;
+      if(!quiet) toast("同步失败(" + up.status + ")");
     }
-  }catch(e){ ui.textContent = "上传出错：" + e.message; toast("上传出错"); }
+    return false;
+  }catch(e){ if(ui) ui.textContent = "同步出错：" + e.message; if(!quiet) toast("同步出错"); return false; }
 }
 function compressImg(dataUrl, maxW, quality){
   return new Promise(res => {
@@ -2013,57 +2004,92 @@ function compressImg(dataUrl, maxW, quality){
     img.src = dataUrl;
   });
 }
-async function syncDownload(){
-  const pass = $("fSyncPass").value;
+async function syncDownload(quiet){
+  const pass = $("fSyncPass").value || getSyncPass();
   const ui = $("syncStatus");
   if(pass.length < 6){ toast("输入同步密码"); return; }
-  ui.textContent = "正在从云端拉取…";
+  if(ui) ui.textContent = "正在从云端拉取…";
   try{
-    // 用 raw 通道下载（Contents 默认接口对 >1MB 文件返回空内容）
-    const headers = {'Accept':'application/vnd.github.raw+json', 'User-Agent':'vision-board-sync'};
-    const tok = getSyncToken();
-    if(tok) headers['Authorization'] = 'Bearer ' + tok;
-    const res = await fetch('https:' + '//api.github.com/repos/' + SYNC_OWNER + '/' + SYNC_REPO + '/contents/' + SYNC_PATH, {headers});
-    if(res.status === 404){ ui.textContent = "云端还没有备份，先点「上传到云端」"; toast("云端暂无备份"); return; }
-    if(res.status !== 200){ ui.textContent = "拉取失败(" + res.status + ")"; return; }
-    const payloadStr = await res.text();
-    let jsonStr;
-    try{ jsonStr = await syncDecrypt(payloadStr, pass); }
-    catch(e){ ui.textContent = "密码不对，无法解密（请确认与上传时完全一致，含大小写与空格）"; toast("密码不对"); return; }
-    const p = JSON.parse(jsonStr);
-    if(!p.dreams && !p.goals) throw new Error("bad");
-    const oldTheme = state.theme;
-    state = Object.assign(load(), p);
-    state.theme = oldTheme;
-    if(!Array.isArray(state.timeflow)) state.timeflow = [];
-    if(!Array.isArray(state.success)) state.success = [];
-    if(!Array.isArray(state.gratitude)) state.gratitude = [];
-    if(!Array.isArray(state.cards)) state.cards = [];
-    (state.dreams||[]).forEach(x => {
-      if(!Array.isArray(x.images)) x.images = x.img ? [x.img] : [];
-      if(x.images.length && !x.img) x.img = x.images[0];
-    });
-    save(); renderAll();
-    ui.textContent = "✓ 已从云端恢复：" + new Date().toLocaleString('zh-CN',{hour12:false});
-    toast("已从云端恢复 ✦");
-  }catch(e){ ui.textContent = "恢复出错：" + e.message; toast("恢复出错"); }
+    const got = await sbFetch('GET', '?select=id,data,updated_at&id=eq.1', null);
+    if(got.status === -1){ if(ui) ui.textContent = "网络连接失败，请稍后重试"; if(!quiet) toast("网络连接失败"); return; }
+    if(got.status === 200 && got.data && got.data.length){
+      const row = got.data[0];
+      const payloadStr = syncFromB64(row.data.p);
+      let jsonStr;
+      try{ jsonStr = await syncDecrypt(payloadStr, pass); }
+      catch(e){ if(ui) ui.textContent = "密码不对，无法解密（请确认与上传时完全一致）"; if(!quiet) toast("密码不对"); return; }
+      const p = JSON.parse(jsonStr);
+      if(!p.dreams && !p.goals) throw new Error("bad");
+      const oldTheme = state.theme;
+      state = Object.assign(load(), p);
+      state.theme = oldTheme;
+      if(!Array.isArray(state.timeflow)) state.timeflow = [];
+      if(!Array.isArray(state.success)) state.success = [];
+      if(!Array.isArray(state.gratitude)) state.gratitude = [];
+      if(!Array.isArray(state.cards)) state.cards = [];
+      (state.dreams||[]).forEach(x => {
+        if(!Array.isArray(x.images)) x.images = x.img ? [x.img] : [];
+        if(x.images.length && !x.img) x.img = x.images[0];
+      });
+      const serverTs = new Date(row.updated_at).getTime();
+      setSyncTime(serverTs);
+      try{ localStorage.setItem(SYNC_REMOTE_KEY, String(serverTs)); }catch(e){}
+      save(); renderAll();
+      if(ui) ui.textContent = "✓ 已恢复：" + new Date().toLocaleString('zh-CN',{hour12:false});
+      if(!quiet) toast("已从云端恢复 ✦");
+    }else if(got.status === 404){
+      if(ui) ui.textContent = "云端数据库表还没创建：请先在 Supabase SQL 里执行建表语句（见交付说明）";
+      if(!quiet) toast("请先执行建表 SQL");
+    }else{
+      if(ui) ui.textContent = "云端还没有备份，先点「上传到云端」";
+      if(!quiet) toast("云端暂无备份");
+    }
+  }catch(e){ if(ui) ui.textContent = "恢复出错：" + e.message; if(!quiet) toast("恢复出错"); }
 }
 function renderSyncStatus(){
   const ui = $("syncStatus");
   if(!ui) return;
   const t = localStorage.getItem(SYNC_TIME_KEY);
-  ui.textContent = t ? "上次上传：" + new Date(Number(t)).toLocaleString('zh-CN',{hour12:false}) : "";
+  const pass = getSyncPass();
+  if(pass){
+    ui.textContent = (t ? "上次同步：" + new Date(Number(t)).toLocaleString('zh-CN',{hour12:false}) + " · " : "") + "自动同步已开启";
+  }else{
+    ui.textContent = t ? "上次同步：" + new Date(Number(t)).toLocaleString('zh-CN',{hour12:false}) : "未配置（输入密码即可开始同步）";
+  }
 }
 async function syncUploadAuto(){
-  const token = getSyncToken();
   const pass = getSyncPass();
-  if(!token || !pass){
-    toast("先到「设置」里配置云同步并勾选记住密码");
-    switchTab("settings");
-    return;
-  }
+  if(!pass){ toast("先到「设置」里配置云同步并勾选记住密码"); switchTab("settings"); return; }
   $("fSyncPass").value = pass;
-  await syncUpload();
+  await syncUpload(true);
+}
+/* 自动同步：打开页面拉取 + 30s 轮询云端 */
+let sbPollTimer = null;
+async function syncAutoPull(){
+  const pass = getSyncPass();
+  if(!pass) return;
+  $("fSyncPass").value = pass;
+  try{
+    const got = await sbFetch('GET', '?select=id,data,updated_at&id=eq.1', null);
+    if(got.status !== 200 || !got.data || !got.data.length) return;
+    const remoteTs = new Date(got.data[0].updated_at).getTime();
+    const lastLocal = +(localStorage.getItem(SYNC_REMOTE_KEY) || 0);
+    if(remoteTs > lastLocal){ await syncDownload(true); }
+  }catch(e){}
+}
+function syncInit(){
+  const pass = getSyncPass();
+  if(!pass) return;
+  syncAutoPull();
+  clearInterval(sbPollTimer);
+  sbPollTimer = setInterval(syncAutoPull, 30000);
+}
+/* 本地保存后防抖自动推送（记住密码时） */
+let cloudPushTimer = null;
+function scheduleCloudPush(){
+  if(!getSyncPass()) return;
+  clearTimeout(cloudPushTimer);
+  cloudPushTimer = setTimeout(()=>{ $("fSyncPass").value = getSyncPass(); syncUpload(true); }, 3000);
 }
 
 /* ===== 一键分享：把拼贴画成长图（canvas，零依赖） ===== */
@@ -2238,7 +2264,7 @@ function dismissHint(){ state.backupHintDismissed = true; save(); $("backupHint"
 $("themeBtn").addEventListener("click", cycleTheme);
 
 window.DB = {
-  switchTab, toggleHabit, exportJSON, importJSON, resetDemo, clearAll, dismissHint,
+  switchTab, toggleHabit, addHabit, delHabit, exportJSON, importJSON, resetDemo, clearAll, dismissHint,
   saveEdit, uploadImg, removeImg, pickTheme,
   addTimeFlow, toggleTF, delTF, shiftDay,
   addDiary, delDiary, addCard, delCard,
@@ -2248,6 +2274,7 @@ window.DB = {
   addDream, removeDream, shareBoard
 };
 initTheme();
+try{ syncInit(); }catch(e){}
 switchTab(state.tab || "vision");
 </script>
 </body>
