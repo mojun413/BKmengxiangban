@@ -788,7 +788,7 @@ input[type="time"]::-webkit-calendar-picker-indicator{opacity:.5}
       <footer class="closing">
         <p class="closing-line" id="closingLine"></p>
         <p class="closing-sub" id="closingSub"></p>
-        <p class="closing-hint">v32 · 数据保存在你的设备上 · 底部「设置」可编辑与备份 ✦</p>
+        <p class="closing-hint">v33 · 数据保存在你的设备上 · 底部「设置」可编辑与备份 ✦</p>
         <div class="backup-hint" id="backupHint" hidden style="max-width:520px;margin:22px auto 0">
           <span>记录已积累 <b id="hintCount">0</b> 条，建议在「设置」里导出备份 ✦</span>
           <button onclick="DB.dismissHint()">知道了</button>
@@ -1447,6 +1447,7 @@ function chCancel(){ clearTimeout(holdTimer); holdEl = null; }
 let lbIdx = 0, lbDi = -1;
 function lbImgs(di){ const d=state.dreams[di]; if(!d) return []; let imgs = Array.isArray(d.images) ? d.images : (d.img ? [d.img] : []); if(!imgs.length && d.icon){ /* 用插画做第一张占位 */ } return imgs; }
 function openLightbox(di, idx){
+  lbPauseAuto();
   lbDi = di; lbIdx = idx || 0;
   const d = state.dreams[di]; if(!d) return;
   const imgs = lbImgs(di);
@@ -1473,9 +1474,11 @@ function renderLightbox(){
     (total < 9 ? `<div class="lb-thumb add" onclick="DB.uploadImg(${lbDi})" title="添加照片"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></div>` : "");
   $("lbThumbs").innerHTML = thumbHtml;
   bindThumbDrag();
-  // 操作按钮（设为封面 / 添加 / 删除图 / 删除愿景）
+  // 操作按钮（设为封面 / 自动轮播 / 添加 / 删除图 / 删除愿景）
+  const autoTxt = lbAutoTimer ? "⏸ 暂停" : "▶ 轮播";
   $("lbActions").innerHTML = `
     ${total > 1 ? `<button onclick="DB.lbSetCover(${lbIdx})" title="把这张设为卡片主图">${UI_ICONS.star} 封面</button>` : ""}
+    ${total > 1 ? `<button id="lbAutoBtn" onclick="DB.lbToggleAuto()" title="自动轮播所有照片">${autoTxt}</button>` : ""}
     <button onclick="DB.uploadImg(${lbDi})">${UI_ICONS.plus} 添加</button>
     ${total ? `<button class="danger" onclick="DB.lbRemoveImg(${lbIdx})">${UI_ICONS.trash} 删图</button>` : ""}
     <button class="danger" onclick="DB.removeDream(${lbDi})">${UI_ICONS.trash} 删愿景</button>
@@ -1496,6 +1499,7 @@ function renderLightbox(){
 }
 function lbEditField(field){
   const d = state.dreams[lbDi]; if(!d) return;
+  lbPauseAuto();
   const sel = {name:".lb-name", why:".lb-why", cur:".lb-field-cur", goal:".lb-field-goal", unit:".lb-unit"}[field];
   const host = $("lbBody").querySelector(sel);
   if(!host) return;
@@ -1532,8 +1536,24 @@ function lbNav(delta){
   const total = lbImgs(lbDi).length; if(!total) return;
   lbIdx = (lbIdx + delta + total) % total;
   renderLightbox();
+  lbPauseAuto();
 }
-function lbNavTo(i){ lbIdx = i; renderLightbox(); }
+function lbNavTo(i){ lbIdx = i; renderLightbox(); lbPauseAuto(); }
+/* ===== 自动轮播：每 3.5s 切下一张，手动操作即暂停 ===== */
+let lbAutoTimer = null;
+function lbPauseAuto(){ clearInterval(lbAutoTimer); lbAutoTimer = null; const b=$("lbAutoBtn"); if(b) b.textContent = "▶ 轮播"; }
+function lbToggleAuto(){
+  const total = lbImgs(lbDi).length;
+  if(total <= 1){ toast("只有一张照片，无需轮播"); return; }
+  if(lbAutoTimer){ lbPauseAuto(); toast("已暂停轮播"); return; }
+  lbAutoTimer = setInterval(() => {
+    const t = lbImgs(lbDi).length; if(!t){ lbPauseAuto(); return; }
+    lbIdx = (lbIdx + 1) % t;
+    renderLightbox();
+  }, 3500);
+  const b = $("lbAutoBtn"); if(b) b.textContent = "⏸ 暂停";
+  toast("自动轮播中 · 点任意操作暂停 ✦");
+}
 function lbRemoveImg(i){
   const d = state.dreams[lbDi]; if(!d || !d.images || !d.images[i]) return;
   if(!confirm("删除这张照片？")) return;
@@ -1541,14 +1561,14 @@ function lbRemoveImg(i){
   if(!d.images.length) d.img = null; else d.img = d.images[0];
   lbIdx = Math.min(lbIdx, d.images.length-1);
   save(); buildEditForm && buildEditForm(); renderAll();
-  if(d.images.length){ renderLightbox(); }
-  else { openLightbox(lbDi, 0); }
+  if(d.images.length > 1){ renderLightbox(); }
+  else { lbPauseAuto(); if(d.images.length){ renderLightbox(); } else { openLightbox(lbDi, 0); } }
 }
 function lbBgClose(e){
   // 仅当点击点在 .lightbox 自身（不在 .lb-card 内部）时关闭
   if(e.target.id === "lightbox") closeLightbox();
 }
-function closeLightbox(){ $("lightbox").classList.remove("open"); }
+function closeLightbox(){ lbPauseAuto(); $("lightbox").classList.remove("open"); }
 function moveImgInArray(arr, from, to){
   if(from === to) return;
   const it = arr.splice(from, 1)[0];
@@ -1644,6 +1664,7 @@ function tdEnd(e){
 }
 function lbSetCover(i){
   const d = state.dreams[lbDi]; if(!d || !Array.isArray(d.images) || !d.images[i]) return;
+  lbPauseAuto();
   moveImgInArray(d.images, i, 0);
   syncImgState(lbDi); lbIdx = 0;
   save(); renderAll(); renderLightbox();
@@ -2190,6 +2211,7 @@ function ceDelete(){
 function delCard(i){ state.cards.splice(i,1); save(); renderAll(); toast("已删除"); }
 
 function uploadImg(i){
+  lbPauseAuto();
   clearTimeout(tileTapTimer);
   const d = state.dreams[i]; if(!d) return;
   if(!Array.isArray(d.images)) d.images = (d.img ? [d.img] : []);
@@ -2603,7 +2625,7 @@ window.DB = {
   syncUpload, syncDownload, syncUploadAuto,
   tapTile, openLightbox, closeLightbox, lbNav, lbNavTo, lbRemoveImg, lbBgClose, lbSetCover,
   lbEditField, openCardEdit, closeCardEdit, ceSave, ceDelete,
-  addDream, removeDream, shareBoard, relayoutMasonry, goalEdit
+  addDream, removeDream, shareBoard, relayoutMasonry, goalEdit, lbToggleAuto
 };
 initTheme();
 try{ bindCollageHold(); }catch(e){}
