@@ -1792,7 +1792,23 @@ function buildEditForm(){
     </div>`).join("");
   $("fStrengths").value = (state.userStrengths||[]).join("\n");
   $("fClosing").value = (state.userClosing||[]).join("\n");
+  bindSettingsAutoSave();
 }
+function bindSettingsAutoSave(){
+  const v = $("view-settings");
+  if(!v || v.dataset.as) return;
+  v.dataset.as = "1";
+  let t = null;
+  // 输入过程中防抖保存（700ms），改动即存，刷新/切走都不丢
+  v.addEventListener("input", () => {
+    clearTimeout(t);
+    t = setTimeout(() => { collectEdit(); save(); }, 700);
+  });
+  v.addEventListener("change", () => { collectEdit(); save(); });
+}
+window.addEventListener("beforeunload", () => {
+  try{ if(state && state.tab === "settings"){ collectEdit(); save(); } }catch(e){}
+});
 function collectEdit(){
   state.name = $("fName").value.trim() || "我";
   state.yearTitle = ($("fYear").value || String(new Date().getFullYear())).slice(0,8);
