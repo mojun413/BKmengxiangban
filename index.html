@@ -748,7 +748,7 @@ input[type="time"]::-webkit-calendar-picker-indicator{opacity:.5}
       <footer class="closing">
         <p class="closing-line" id="closingLine"></p>
         <p class="closing-sub" id="closingSub"></p>
-        <p class="closing-hint">v19 · 数据保存在你的设备上 · 底部「设置」可编辑与备份 ✦</p>
+        <p class="closing-hint">v20 · 数据保存在你的设备上 · 底部「设置」可编辑与备份 ✦</p>
       </footer>
     </section>
 
@@ -852,10 +852,10 @@ input[type="time"]::-webkit-calendar-picker-indicator{opacity:.5}
             <input type="password" id="fSyncPass" placeholder="至少 6 位，如：我的梦想2026" autocomplete="off">
           </label>
           <label style="display:flex;align-items:center;gap:8px;font-size:13.5px;color:var(--ink);margin:2px 0 4px">
-            <input type="checkbox" id="fSyncRemember" style="width:20px;height:20px"> 记住密码（本机自动备份用，仅存此浏览器）
+            <input type="checkbox" id="fSyncRemember" style="width:20px;height:20px"> 记住密码（一键备份免输密码，仅存此浏览器）
           </label>
           <p class="set-cap"><b style="color:var(--green)">换设备恢复：只需上面这个密码</b>，无需 Token。数据用密码加密（AES-256）后存入你自己的 Supabase 云端，云端只有密文。</p>
-          <p class="set-cap">勾选「记住密码」后：本机每次改动会自动同步到云端，打开页面也会自动拉取其他设备的最新数据——全程不用再操作。</p>
+          <p class="set-cap">纯手动模式：点「上传到云端」备份当前数据；换设备时点「从云端恢复」拉取。勾选「记住密码」后，一键备份与上传都无需再输密码。</p>
           <div class="btn-row" style="margin-top:12px">
             <button type="button" class="btn primary" onclick="DB.syncUpload()">上传到云端</button>
             <button type="button" class="btn" onclick="DB.syncDownload()">从云端恢复</button>
@@ -1150,7 +1150,6 @@ function save(){
   }
   try{ localStorage.setItem('wb_local_saved', String(Date.now())); }catch(e){}
   saveCfg();
-  if(typeof scheduleCloudPush === 'function') scheduleCloudPush();
 }
 
 const $ = id => document.getElementById(id);
@@ -2125,7 +2124,7 @@ function renderSyncStatus(){
   const t = localStorage.getItem(SYNC_TIME_KEY);
   const pass = getSyncPass();
   if(pass){
-    ui.textContent = (t ? "上次同步：" + new Date(Number(t)).toLocaleString('zh-CN',{hour12:false}) + " · " : "") + "自动同步已开启";
+    ui.textContent = (t ? "上次同步：" + new Date(Number(t)).toLocaleString('zh-CN',{hour12:false}) + " · " : "") + "手动模式：改动后点「上传到云端」";
   }else{
     ui.textContent = t ? "上次同步：" + new Date(Number(t)).toLocaleString('zh-CN',{hour12:false}) : "未配置（输入密码即可开始同步）";
   }
@@ -2136,36 +2135,7 @@ async function syncUploadAuto(){
   $("fSyncPass").value = pass;
   await syncUpload(true);
 }
-/* 自动同步：打开页面拉取 + 30s 轮询云端 */
-let sbPollTimer = null;
-async function syncAutoPull(){
-  const pass = getSyncPass();
-  if(!pass) return;
-  $("fSyncPass").value = pass;
-  try{
-    const got = await sbFetch('GET', '?select=id,data,updated_at&id=eq.1', null);
-    if(got.status !== 200 || !got.data || !got.data.length) return;
-    const remoteTs = new Date(got.data[0].updated_at).getTime();
-    const lastLocal = +(localStorage.getItem(SYNC_REMOTE_KEY) || 0);
-    const localSaved = +(localStorage.getItem('wb_local_saved') || 0);
-    // 只有云端比本地最后一次改动还新才恢复；本地刚改过（未上传）时等待自动上传，防止覆盖
-    if(remoteTs > lastLocal && remoteTs > localSaved){ await syncDownload(true); }
-  }catch(e){}
-}
-function syncInit(){
-  const pass = getSyncPass();
-  if(!pass) return;
-  syncAutoPull();
-  clearInterval(sbPollTimer);
-  sbPollTimer = setInterval(syncAutoPull, 30000);
-}
-/* 本地保存后防抖自动推送（记住密码时） */
-let cloudPushTimer = null;
-function scheduleCloudPush(){
-  if(!getSyncPass()) return;
-  clearTimeout(cloudPushTimer);
-  cloudPushTimer = setTimeout(()=>{ $("fSyncPass").value = getSyncPass(); syncUpload(true); }, 3000);
-}
+/* 纯手动模式：不开自动拉取 / 自动推送，只有点「上传到云端 / 从云端恢复 / 一键备份」才同步 */
 
 /* ===== 一键分享：把拼贴画成长图（canvas，零依赖） ===== */
 function themeVar(name){
@@ -2349,7 +2319,6 @@ window.DB = {
   addDream, removeDream, shareBoard
 };
 initTheme();
-try{ syncInit(); }catch(e){}
 switchTab(state.tab || "vision");
 </script>
 </body>
