@@ -205,7 +205,6 @@ input[type="time"]::-webkit-calendar-picker-indicator{opacity:.5}
 .collage{margin:26px 0 4px;columns:var(--vcols,2);column-gap:13px}
 .collage .tile{-webkit-user-drag:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
 .collage .tile img{pointer-events:none}
-.collage .tile.dragging{position:relative;z-index:50;opacity:.94;box-shadow:0 18px 44px rgba(60,50,35,.38);transition:transform .12s ease}
 .tile{
   break-inside:avoid;display:block;width:100%;margin-bottom:13px;
   background:var(--card);border-radius:var(--vrad,4px);overflow:hidden;
@@ -751,7 +750,7 @@ input[type="time"]::-webkit-calendar-picker-indicator{opacity:.5}
       <footer class="closing">
         <p class="closing-line" id="closingLine"></p>
         <p class="closing-sub" id="closingSub"></p>
-        <p class="closing-hint">v25 · 数据保存在你的设备上 · 底部「设置」可编辑与备份 ✦</p>
+        <p class="closing-hint">v26 · 数据保存在你的设备上 · 底部「设置」可编辑与备份 ✦</p>
       </footer>
     </section>
 
@@ -1310,95 +1309,65 @@ function renderCollage(){
   </div>`;
   $("collage").innerHTML = html;
 }
-let tileTapTimer = null;
+let tileTapTimer = null, holdPinned = false;
 function tapTile(el){
+  if(holdPinned){ holdPinned = false; return; }
   const di = +el.dataset.di;
   clearTimeout(tileTapTimer);
   tileTapTimer = setTimeout(()=>openLightbox(di), 260);
 }
-/* ===== 长按拖动：愿景卡自由排版（触屏/鼠标长按 420ms，与单击/双击不冲突） ===== */
-let dragEl = null, dragStartX = 0, dragStartY = 0, dragMode = false, dragTimer = null;
-function bindCollageDrag(){
+/* ===== 长按置顶：长按愿景卡 400ms → 移到拼贴最前（比拖拽简单可靠，与单击/双击不冲突） ===== */
+let holdEl = null, holdTimer = null, holdX = 0, holdY = 0;
+function bindCollageHold(){
   const c = $("collage");
-  if(!c || c.dataset.drag) return;
-  c.dataset.drag = "1";
-  c.addEventListener("touchstart", ev => cdStart(ev.touches[0], ev), {passive:true});
-  c.addEventListener("touchmove", ev => cdMove(ev.touches[0], ev), {passive:false});
-  c.addEventListener("touchend", () => cdEnd());
-  c.addEventListener("touchcancel", () => cdCancel());
-  c.addEventListener("mousedown", ev => { if(ev.button === 0) cdStart(ev, ev); });
-  window.addEventListener("mousemove", ev => cdMove(ev, ev));
-  window.addEventListener("mouseup", () => cdEnd());
-  // 拦截长按图片的默认菜单（保存图片/识别二维码等），保证长按只进入拖拽
+  if(!c || c.dataset.hold) return;
+  c.dataset.hold = "1";
+  c.addEventListener("touchstart", ev => chStart(ev.touches[0], ev), {passive:true});
+  c.addEventListener("touchmove", ev => chMove(ev.touches[0]), {passive:true});
+  c.addEventListener("touchend", () => chEnd());
+  c.addEventListener("touchcancel", () => chCancel());
+  c.addEventListener("mousedown", ev => { if(ev.button === 0) chStart(ev, ev); });
+  window.addEventListener("mousemove", ev => chMove(ev));
+  window.addEventListener("mouseup", () => chEnd());
+  // 拦截长按图片的默认菜单（保存图片/识别二维码等），保证长按只执行置顶
   c.addEventListener("contextmenu", ev => {
     const tile = ev.target.closest ? ev.target.closest(".tile") : null;
     if(tile && !tile.classList.contains("tile-addcard")) ev.preventDefault();
   });
 }
-function cdStart(pt, ev){
+function chStart(pt, ev){
   const tile = ev.target.closest ? ev.target.closest(".tile") : null;
   if(!tile || tile.classList.contains("tile-addcard") || tile.querySelector(".tile-text") || tile.dataset.di === undefined) return;
-  dragEl = tile;
-  dragStartX = pt.clientX; dragStartY = pt.clientY;
-  dragMode = false;
-  clearTimeout(dragTimer);
-  dragTimer = setTimeout(() => {
-    if(!dragEl) return;
-    dragMode = true;
+  holdEl = tile;
+  holdX = pt.clientX; holdY = pt.clientY;
+  clearTimeout(holdTimer);
+  holdTimer = setTimeout(() => {
+    if(!holdEl) return;
+    const di = +holdEl.dataset.di;
+    holdEl = null;
+    if(!state.dreams[di]) return;
     clearTimeout(tileTapTimer);
-    dragEl.classList.add("dragging");
-    if(navigator.vibrate){ try{ navigator.vibrate(10); }catch(e){} }
-  }, 420);
+    holdPinned = true;
+    setTimeout(() => { holdPinned = false; }, 700);
+    const dream = state.dreams[di];
+    state.dreams.splice(di, 1);
+    state.dreams.unshift(dream);
+    save();
+    renderCollage();
+    if(navigator.vibrate){ try{ navigator.vibrate(12); }catch(e){} }
+    toast("已置顶「" + (dream.name || "这张愿景") + "」✦");
+  }, 400);
 }
-function cdMove(pt, ev){
-  if(!dragEl) return;
-  const dx = pt.clientX - dragStartX, dy = pt.clientY - dragStartY;
-  if(!dragMode){
-    // 移动超过 10px：取消长按，保持正常滚动/点击
-    if(Math.abs(dx) > 10 || Math.abs(dy) > 10){ clearTimeout(dragTimer); dragEl = null; }
-    return;
-  }
-  if(ev.cancelable) ev.preventDefault();
-  dragEl.style.transition = "none";
-  dragEl.style.transform = "translate(" + dx + "px," + dy + "px) scale(1.05)";
-  // 找最近卡片作为插入目标，实时重排（columns 瀑布流自动流动）
-  const r = dragEl.getBoundingClientRect();
-  const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
-  let best = null, bestD = Infinity;
-  document.querySelectorAll("#collage .tile:not(.dragging):not(.tile-addcard)").forEach(t => {
-    const tr = t.getBoundingClientRect();
-    const d2 = Math.pow(tr.left + tr.width/2 - cx, 2) + Math.pow(tr.top + tr.height/2 - cy, 2);
-    if(d2 < bestD){ bestD = d2; best = t; }
-  });
-  if(best && (dragEl.compareDocumentPosition(best) & Node.DOCUMENT_POSITION_PRECEDING)){
-    best.after(dragEl);
-  }else if(best){
-    best.before(dragEl);
+function chMove(pt){
+  if(!holdEl) return;
+  // 移动超过 10px：取消长按，保持正常滚动
+  if(Math.abs(pt.clientX - holdX) > 10 || Math.abs(pt.clientY - holdY) > 10){
+    clearTimeout(holdTimer);
+    holdEl = null;
   }
 }
-function cdEnd(){
-  if(dragMode && dragEl){
-    const el = dragEl;
-    const block = ev => { ev.stopPropagation(); ev.preventDefault(); el.removeEventListener("click", block, true); };
-    el.addEventListener("click", block, true);
-    const order = Array.from(document.querySelectorAll("#collage .tile[data-di]")).map(t => +t.dataset.di);
-    const base = state.dreams.map((_, i) => i).join(",");
-    const changed = order.length && order.join(",") !== base;
-    cdCancel();
-    if(changed){
-      state.dreams = order.map(i => state.dreams[i]);
-      save();
-      renderCollage();
-    }
-  }else{
-    cdCancel();
-  }
-}
-function cdCancel(){
-  if(dragEl){ dragEl.classList.remove("dragging"); dragEl.style.transform = ""; dragEl.style.transition = ""; }
-  dragEl = null; dragMode = false;
-  clearTimeout(dragTimer);
-}
+function chEnd(){ clearTimeout(holdTimer); holdEl = null; }
+function chCancel(){ clearTimeout(holdTimer); holdEl = null; }
 let lbIdx = 0, lbDi = -1;
 function lbImgs(di){ const d=state.dreams[di]; if(!d) return []; let imgs = Array.isArray(d.images) ? d.images : (d.img ? [d.img] : []); if(!imgs.length && d.icon){ /* 用插画做第一张占位 */ } return imgs; }
 function openLightbox(di, idx){
@@ -2461,7 +2430,7 @@ window.DB = {
   addDream, removeDream, shareBoard
 };
 initTheme();
-try{ bindCollageDrag(); }catch(e){}
+try{ bindCollageHold(); }catch(e){}
 switchTab(state.tab || "vision");
 </script>
 </body>
