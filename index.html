@@ -37,7 +37,7 @@
 :root{
   --bg:#F3EDDF; --bg2:#ECE3CF;
   --card:#FCF8EE; --card2:#F6EFDE;
-  --ink:#32291F; --ink2:#8A7A63;
+  --ink:#32291F; --ink2:#6E5F4A;
   --line:#E2D7BE; --line2:#D6C9AC;
   --accent:#BC5B3A; --accent-deep:#A34B2E;
   --green:#74875A; --gold:#B98A2F; --blue:#6E87A0; --rose:#C08787;
@@ -176,9 +176,11 @@ input[type="time"]::-webkit-calendar-picker-indicator{opacity:.5}
   transition:background .18s, border-color .18s, color .18s, transform .12s;
 }
 .chip:active{transform:scale(.95)}
-.chip.on{background:var(--green);border-color:var(--green);color:#fff}
+.chip.on{background:var(--green);border-color:var(--green);color:#fff;animation:chipPop .35s cubic-bezier(.22,.8,.3,1)}
 .chip .ck{opacity:0;font-size:13px}
-.chip.on .ck{opacity:1}
+.chip.on .ck{opacity:1;animation:ckPop .3s cubic-bezier(.34,1.56,.64,1) both}
+@keyframes chipPop{0%{transform:scale(.94)}60%{transform:scale(1.045)}100%{transform:scale(1)}}
+@keyframes ckPop{0%{opacity:0;transform:scale(.4)}100%{opacity:1;transform:scale(1)}}
 .chip.late{border-color:var(--accent);color:var(--accent)}
 .focus-overdue{
   margin-top:12px;padding:11px 13px;border-radius:12px;
@@ -199,6 +201,10 @@ input[type="time"]::-webkit-calendar-picker-indicator{opacity:.5}
 }
 .backup-hint[hidden]{display:none}
 .backup-hint b{color:var(--gold);font-weight:600}
+.backup-hint.ok{border-color:var(--green);background:color-mix(in srgb, var(--green) 8%, var(--card2))}
+.backup-hint.ok b{color:var(--green)}
+.pulse{animation:bkPulse .5s cubic-bezier(.22,.8,.3,1)}
+@keyframes bkPulse{0%{transform:scale(.96)}50%{transform:scale(1.02)}100%{transform:scale(1)}}
 .backup-hint button{color:var(--ink2);font-size:13px;min-width:44px;min-height:44px}
 
 /* ============ ② 满屏 Collage（拍立得世界） ============ */
@@ -256,6 +262,7 @@ input[type="time"]::-webkit-calendar-picker-indicator{opacity:.5}
   background:rgba(20,16,11,.6);color:#fff;
   padding:3px 9px;border-radius:99px;
   font-size:11px;letter-spacing:.04em;line-height:1.4;
+  font-family:Georgia,serif;font-weight:700;
   display:inline-flex;align-items:center;gap:4px;
   -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
 }
@@ -339,10 +346,13 @@ input[type="time"]::-webkit-calendar-picker-indicator{opacity:.5}
 .g-val b{color:var(--ink);font-weight:700}
 .g-ed{cursor:pointer;border-bottom:1px dashed var(--line2);padding:0 2px;border-radius:3px;transition:border-color .15s, color .15s}
 .g-ed:hover{border-bottom-color:var(--accent)}
-.g-inline{min-width:56px;max-width:96px;display:inline-block;padding:3px 8px;font-size:13px;border-radius:7px;text-align:center}
+.g-inline{min-width:56px;max-width:96px;display:inline-block;padding:3px 8px;font-size:13px;border-radius:7px;text-align:center;font-family:Georgia,serif}
 .bar{height:6px;border-radius:99px;background:color-mix(in srgb, var(--ink) 7%, transparent);overflow:hidden}
 .bar-fill{height:100%;width:100%;border-radius:99px;background:linear-gradient(90deg,var(--accent),var(--gold));transform:scaleX(0);transform-origin:left;transition:transform 1s cubic-bezier(.22,.8,.3,1)}
 .g-pct{font-family:Georgia,serif;font-size:14px;font-weight:700;color:var(--ink);flex:0 0 38px;text-align:right}
+/* 目标达成：卡片发光祝贺 */
+.goal.done{border-color:color-mix(in srgb, var(--green) 55%, transparent);box-shadow:0 0 0 2px color-mix(in srgb, var(--green) 22%, transparent), var(--shadow-sm);animation:goalDone .5s cubic-bezier(.22,.8,.3,1)}
+@keyframes goalDone{0%{box-shadow:0 0 0 0 rgba(116,135,90,.0)}40%{box-shadow:0 0 0 5px color-mix(in srgb, var(--green) 40%, transparent)}100%{box-shadow:0 0 0 2px color-mix(in srgb, var(--green) 22%, transparent), var(--shadow-sm)}}
 .rhythm{display:flex;align-items:center;gap:15px;padding:15px;background:var(--card2);border:1px solid var(--line);border-radius:14px}
 .rhythm-ring{line-height:0;flex:0 0 auto}
 .rhythm-info h4{font-size:15px;color:var(--ink);margin-bottom:2px}
@@ -615,7 +625,7 @@ input[type="time"]::-webkit-calendar-picker-indicator{opacity:.5}
 /* 灯箱内联编辑 */
 .lb-field,.lb-unit{cursor:text;border-bottom:1.5px dashed color-mix(in srgb, var(--accent) 55%, transparent);padding:0 2px;transition:background .15s}
 .lb-field:hover,.lb-unit:hover{background:var(--sel);border-radius:4px}
-.lb-inline{min-width:90px;max-width:130px;display:inline-block;padding:5px 9px;font-size:15px;border-radius:8px;margin:0 2px;text-align:center}
+.lb-inline{min-width:90px;max-width:130px;display:inline-block;padding:5px 9px;font-size:15px;border-radius:8px;margin:0 2px;text-align:center;font-family:Georgia,serif}
 .lb-edit-row{display:flex;align-items:baseline;gap:6px;margin-top:14px;padding-top:12px;border-top:1px solid var(--line);font-family:Georgia,serif}
 .lb-edit-row .lb-field{font-size:19px;font-weight:700;color:var(--accent)}
 .lb-edit-row .lb-slash{color:var(--ink2);font-size:15px}
@@ -749,7 +759,7 @@ input[type="time"]::-webkit-calendar-picker-indicator{opacity:.5}
       <footer class="closing">
         <p class="closing-line" id="closingLine"></p>
         <p class="closing-sub" id="closingSub"></p>
-        <p class="closing-hint">v30 · 数据保存在你的设备上 · 底部「设置」可编辑与备份 ✦</p>
+        <p class="closing-hint">v31 · 数据保存在你的设备上 · 底部「设置」可编辑与备份 ✦</p>
         <div class="backup-hint" id="backupHint" hidden style="max-width:520px;margin:22px auto 0">
           <span>记录已积累 <b id="hintCount">0</b> 条，建议在「设置」里导出备份 ✦</span>
           <button onclick="DB.dismissHint()">知道了</button>
@@ -1471,10 +1481,17 @@ function lbEditField(field){
     if(input.dataset.done) return;
     input.dataset.done = "1";
     const v = input.value;
+    const beforePct = pct(d.cur, d.goal);
     if(field === "cur" || field === "goal") d[field] = parseFloat(v) || 0;
     else d[field] = v.trim();
     save(); renderAll(); renderLightbox();
-    toast("已更新 ✦");
+    // 达成祝贺：当前值跨过 100% 的那一刻（与年度目标一致）
+    const afterPct = pct(d.cur, d.goal);
+    if(field === "cur" && beforePct < 100 && afterPct >= 100 && afterPct > 0){
+      toast("🎉 愿景达成！" + (d.name || ""));
+    }else{
+      toast("已更新 ✦");
+    }
   };
   input.onkeydown = e => {
     if(e.key === "Enter") commit();
@@ -1639,6 +1656,7 @@ function renderBackupHint(){
   if(pass){
     const last = localStorage.getItem(SYNC_TIME_KEY);
     const syncedToday = last && new Date(Number(last)).toDateString() === new Date().toDateString();
+    hint.classList.toggle("ok", !!syncedToday);
     if(syncedToday){
       hint.hidden = false;
       hint.innerHTML = `<span>云端已备份 <b>✓</b>，数据安全</span>`;
@@ -1648,6 +1666,7 @@ function renderBackupHint(){
     }
     return;
   }
+  hint.classList.remove("ok");
   // 未配置云同步 → 原 30 条导出提示，引导去设置
   let count = 0;
   state.habits.forEach(h => { count += Object.keys(h.days).length; });
@@ -1668,7 +1687,8 @@ function renderGoals(){
   $("goalList").innerHTML = state.goals.map((g,gi) => {
     const p = pct(g.cur, g.goal);
     const col = p >= 100 ? "var(--green)" : "var(--accent)";
-    return `<div class="goal">
+    const doneCls = p >= 100 ? " done" : "";
+    return `<div class="goal${doneCls}">
       <span class="g-icon">${ICONS[g.icon]||ICONS.coin}</span>
       <div class="g-main">
         <div class="g-top"><span class="g-name">${esc(g.name)}</span><span class="g-val"><b class="g-ed" data-gi="${gi}" data-gf="cur" title="点击修改当前值" onclick="DB.goalEdit(this)">${fmtNum(g.cur)}</b>/<span class="g-ed" data-gi="${gi}" data-gf="goal" title="点击修改目标" onclick="DB.goalEdit(this)">${fmtNum(g.goal)}</span> ${esc(g.unit||"")}</span></div>
@@ -1683,6 +1703,7 @@ function goalEdit(host){
   const gi = +host.dataset.gi, gf = host.dataset.gf, g = state.goals[gi];
   if(!g || host.dataset.editing) return;
   host.dataset.editing = "1";
+  const before = pct(g.cur, g.goal);
   const input = document.createElement("input");
   input.type = "number"; input.inputMode = "numeric"; input.className = "g-inline";
   input.value = g[gf];
@@ -1693,7 +1714,17 @@ function goalEdit(host){
     input.dataset.done = "1";
     g[gf] = parseFloat(input.value) || 0;
     save(); renderGoals();
-    toast("已更新 ✦");
+    // 进度条重放动画（renderGoals 不触发 rAF 动画，这里手动补）
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      document.querySelectorAll("#goalList .bar-fill").forEach(b => { b.style.transform = "scaleX(" + (parseFloat(b.dataset.w)/100) + ")"; });
+    }));
+    // 达成祝贺：跨过 100% 的那一刻
+    const after = pct(g.cur, g.goal);
+    if(gf === "cur" && before < 100 && after >= 100){
+      toast("🎉 目标达成！" + (g.name || ""));
+    }else{
+      toast("已更新 ✦");
+    }
   };
   input.onkeydown = e => {
     if(e.key === "Enter") commit();
@@ -2210,7 +2241,14 @@ async function syncUpload(quiet){
       const serverTs = row && row.updated_at ? new Date(row.updated_at).getTime() : Date.now();
       setSyncTime(serverTs);
       try{ localStorage.setItem(SYNC_REMOTE_KEY, String(serverTs)); }catch(e){}
-      if(ui) ui.textContent = "✓ 已同步：" + new Date().toLocaleString('zh-CN',{hour12:false});
+      if(ui){
+        ui.textContent = "✓ 已同步到云端：" + new Date().toLocaleString('zh-CN',{hour12:false});
+        ui.style.color = "var(--green)";
+        ui.classList.add("pulse");
+        clearTimeout(ui._t);
+        ui._t = setTimeout(()=>{ ui.classList.remove("pulse"); }, 600);
+      }
+      const bh = $("backupHint"); if(bh && bh.hidden === false){ renderBackupHint(); }
       if(!quiet) toast("已同步到云端 ✦");
       return true;
     }else if(up.status === 401 || up.status === 403){
@@ -2476,6 +2514,19 @@ function clearAll(){
   state = blankState(); save(); renderAll(); toast("已清空，从零开始 ✦");
 }
 function dismissHint(){ state.backupHintDismissed = true; save(); $("backupHint").hidden = true; }
+
+/* Esc 一致性：灯箱 / 文字卡编辑弹窗都支持 Esc 关闭（内联编辑框的 Esc 由各函数自行处理） */
+document.addEventListener("keydown", e => {
+  if(e.key !== "Escape") return;
+  const inField = e.target && (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA" || e.target.tagName === "SELECT");
+  if(inField) return; // 输入框内的 Esc 由 lbEditField/goalEdit 自己处理（取消编辑），避免误关弹层
+  try{
+    const lb = $("lightbox");
+    if(lb && lb.classList.contains("open")){ closeLightbox(); return; }
+    const ce = $("cardEdit");
+    if(ce && !ce.hidden){ closeCardEdit(); }
+  }catch(err){}
+});
 
 $("themeBtn").addEventListener("click", cycleTheme);
 
