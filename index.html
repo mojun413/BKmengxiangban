@@ -1810,22 +1810,34 @@ function bindSettingsAutoSave(){
   if(!v || v.dataset.as) return;
   v.dataset.as = "1";
   let t = null;
-  // 输入过程中防抖保存（700ms），改动即存，刷新/切走都不丢
+  // 输入即存（200ms 防抖，几乎即时），刷新/切走都不丢
   v.addEventListener("input", () => {
     clearTimeout(t);
-    t = setTimeout(() => { collectEdit(); save(); }, 700);
+    t = setTimeout(() => { collectEdit(); save(); }, 200);
   });
   v.addEventListener("change", () => { collectEdit(); save(); });
+  // 用户取消"记住密码" → 立即删除本地密码
+  const rmb = $("fSyncRemember");
+  if(rmb){ rmb.addEventListener("change", () => { if(!rmb.checked) removeSyncPass(); }); }
 }
 window.addEventListener("beforeunload", () => {
   try{ if(state && state.tab === "settings"){ collectEdit(); save(); } }catch(e){}
+});
+document.addEventListener("visibilitychange", () => {
+  try{ if(document.visibilityState === "hidden" && state && state.tab === "settings"){ collectEdit(); save(); } }catch(e){}
 });
 function collectEdit(){
   state.name = $("fName").value.trim() || "我";
   state.yearTitle = ($("fYear").value || String(new Date().getFullYear())).slice(0,8);
   if($("fSyncRemember") && $("fSyncPass")){
-    if($("fSyncRemember").checked) setSyncPass($("fSyncPass").value);
-    else removeSyncPass();
+    const sv = $("fSyncPass").value.trim();
+    if(sv.length >= 6){
+      // 输入过密码即自动勾选"记住"并保存（符合"我输入了就该记住"的直觉）
+      if(!$("fSyncRemember").checked) $("fSyncRemember").checked = true;
+      setSyncPass(sv);
+    }else if(!$("fSyncRemember").checked || !sv){
+      removeSyncPass();
+    }
   }
   document.querySelectorAll("#fGoals .set-item").forEach(item => {
     const g = state.goals[+item.dataset.i]; if(!g) return;
