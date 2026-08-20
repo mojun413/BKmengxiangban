@@ -203,9 +203,9 @@ input[type="time"]::-webkit-calendar-picker-indicator{opacity:.5}
 
 /* ============ ② 满屏 Collage（拍立得世界） ============ */
 .collage{margin:26px 0 4px;columns:var(--vcols,2);column-gap:13px}
-.collage .tile{-webkit-user-drag:none;user-select:none;-webkit-user-select:none}
+.collage .tile{-webkit-user-drag:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.collage .tile img{pointer-events:none}
 .collage .tile.dragging{position:relative;z-index:50;opacity:.94;box-shadow:0 18px 44px rgba(60,50,35,.38);transition:transform .12s ease}
-.collage .tile.dragging img{pointer-events:none}
 .tile{
   break-inside:avoid;display:block;width:100%;margin-bottom:13px;
   background:var(--card);border-radius:var(--vrad,4px);overflow:hidden;
@@ -751,7 +751,7 @@ input[type="time"]::-webkit-calendar-picker-indicator{opacity:.5}
       <footer class="closing">
         <p class="closing-line" id="closingLine"></p>
         <p class="closing-sub" id="closingSub"></p>
-        <p class="closing-hint">v24 · 数据保存在你的设备上 · 底部「设置」可编辑与备份 ✦</p>
+        <p class="closing-hint">v25 · 数据保存在你的设备上 · 底部「设置」可编辑与备份 ✦</p>
       </footer>
     </section>
 
@@ -1329,6 +1329,11 @@ function bindCollageDrag(){
   c.addEventListener("mousedown", ev => { if(ev.button === 0) cdStart(ev, ev); });
   window.addEventListener("mousemove", ev => cdMove(ev, ev));
   window.addEventListener("mouseup", () => cdEnd());
+  // 拦截长按图片的默认菜单（保存图片/识别二维码等），保证长按只进入拖拽
+  c.addEventListener("contextmenu", ev => {
+    const tile = ev.target.closest ? ev.target.closest(".tile") : null;
+    if(tile && !tile.classList.contains("tile-addcard")) ev.preventDefault();
+  });
 }
 function cdStart(pt, ev){
   const tile = ev.target.closest ? ev.target.closest(".tile") : null;
