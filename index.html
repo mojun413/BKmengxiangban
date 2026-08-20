@@ -337,6 +337,9 @@ input[type="time"]::-webkit-calendar-picker-indicator{opacity:.5}
 .g-name{font-weight:600}
 .g-val{color:var(--ink2);font-family:Georgia,serif;font-size:12px}
 .g-val b{color:var(--ink);font-weight:700}
+.g-ed{cursor:pointer;border-bottom:1px dashed var(--line2);padding:0 2px;border-radius:3px;transition:border-color .15s, color .15s}
+.g-ed:hover{border-bottom-color:var(--accent)}
+.g-inline{min-width:56px;max-width:96px;display:inline-block;padding:3px 8px;font-size:13px;border-radius:7px;text-align:center}
 .bar{height:6px;border-radius:99px;background:color-mix(in srgb, var(--ink) 7%, transparent);overflow:hidden}
 .bar-fill{height:100%;width:100%;border-radius:99px;background:linear-gradient(90deg,var(--accent),var(--gold));transform:scaleX(0);transform-origin:left;transition:transform 1s cubic-bezier(.22,.8,.3,1)}
 .g-pct{font-family:Georgia,serif;font-size:14px;font-weight:700;color:var(--ink);flex:0 0 38px;text-align:right}
@@ -746,7 +749,7 @@ input[type="time"]::-webkit-calendar-picker-indicator{opacity:.5}
       <footer class="closing">
         <p class="closing-line" id="closingLine"></p>
         <p class="closing-sub" id="closingSub"></p>
-        <p class="closing-hint">v29 · 数据保存在你的设备上 · 底部「设置」可编辑与备份 ✦</p>
+        <p class="closing-hint">v30 · 数据保存在你的设备上 · 底部「设置」可编辑与备份 ✦</p>
         <div class="backup-hint" id="backupHint" hidden style="max-width:520px;margin:22px auto 0">
           <span>记录已积累 <b id="hintCount">0</b> 条，建议在「设置」里导出备份 ✦</span>
           <button onclick="DB.dismissHint()">知道了</button>
@@ -1662,18 +1665,41 @@ function renderGoals(){
     ? Math.round(state.goals.reduce((s,g)=>s+pct(g.cur,g.goal),0)/state.goals.length)
     : 0;
   $("goalSub").textContent = "整体 " + avg + "%";
-  $("goalList").innerHTML = state.goals.map(g => {
+  $("goalList").innerHTML = state.goals.map((g,gi) => {
     const p = pct(g.cur, g.goal);
     const col = p >= 100 ? "var(--green)" : "var(--accent)";
     return `<div class="goal">
       <span class="g-icon">${ICONS[g.icon]||ICONS.coin}</span>
       <div class="g-main">
-        <div class="g-top"><span class="g-name">${esc(g.name)}</span><span class="g-val"><b>${fmtNum(g.cur)}</b>/${fmtNum(g.goal)} ${esc(g.unit||"")}</span></div>
+        <div class="g-top"><span class="g-name">${esc(g.name)}</span><span class="g-val"><b class="g-ed" data-gi="${gi}" data-gf="cur" title="点击修改当前值" onclick="DB.goalEdit(this)">${fmtNum(g.cur)}</b>/<span class="g-ed" data-gi="${gi}" data-gf="goal" title="点击修改目标" onclick="DB.goalEdit(this)">${fmtNum(g.goal)}</span> ${esc(g.unit||"")}</span></div>
         <div class="bar"><div class="bar-fill" data-w="${p}" style="background:linear-gradient(90deg, ${col}, var(--gold))"></div></div>
       </div>
       <span class="g-pct">${p}%</span>
     </div>`;
   }).join("");
+}
+/* 折叠区目标：点击数字 → 内联输入框，回车/失焦即存（与灯箱改数字同款交互） */
+function goalEdit(host){
+  const gi = +host.dataset.gi, gf = host.dataset.gf, g = state.goals[gi];
+  if(!g || host.dataset.editing) return;
+  host.dataset.editing = "1";
+  const input = document.createElement("input");
+  input.type = "number"; input.inputMode = "numeric"; input.className = "g-inline";
+  input.value = g[gf];
+  host.replaceWith(input);
+  input.focus(); input.select();
+  const commit = () => {
+    if(input.dataset.done) return;
+    input.dataset.done = "1";
+    g[gf] = parseFloat(input.value) || 0;
+    save(); renderGoals();
+    toast("已更新 ✦");
+  };
+  input.onkeydown = e => {
+    if(e.key === "Enter") commit();
+    if(e.key === "Escape") renderGoals();
+  };
+  input.onblur = commit;
 }
 function streakOf(h){
   let n = 0; const d = new Date();
@@ -2461,7 +2487,7 @@ window.DB = {
   syncUpload, syncDownload, syncUploadAuto,
   tapTile, openLightbox, closeLightbox, lbNav, lbNavTo, lbRemoveImg, lbBgClose, lbSetCover,
   lbEditField, openCardEdit, closeCardEdit, ceSave, ceDelete,
-  addDream, removeDream, shareBoard, relayoutMasonry
+  addDream, removeDream, shareBoard, relayoutMasonry, goalEdit
 };
 initTheme();
 try{ bindCollageHold(); }catch(e){}
