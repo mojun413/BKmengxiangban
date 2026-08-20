@@ -1953,15 +1953,29 @@ async function syncUpload(){
     }
     const payload = await syncEncrypt(JSON.stringify(syncState), pass);
     const content = syncToB64(payload);
-    // 上传（422 时重试一次，解决 sha 过期冲突）
+    // 上传（版本号拿不到就中止；422 冲突时重取最新版本号，最多 3 轮）
     let up = null;
-    for(let attempt = 0; attempt < 2; attempt++){
-      const exist = await syncGh('/repos/'+SYNC_OWNER+'/'+SYNC_REPO+'/contents/'+SYNC_PATH, {}, token);
+    for(let attempt = 0; attempt < 3; attempt++){
+      // 1) 拿最新版本号 sha（404=云端还没有此文件，直接创建无需 sha）
+      let sha = null, exist = null;
+      for(let g = 0; g < 3; g++){
+        exist = await syncGh('/repos/'+SYNC_OWNER+'/'+SYNC_REPO+'/contents/'+SYNC_PATH, {}, token);
+        if(exist.status === 200 && exist.data && exist.data.sha){ sha = exist.data.sha; break; }
+        if(exist.status === 404){ break; }
+        await new Promise(r => setTimeout(r, 1500));
+      }
+      if(exist && exist.status !== 200 && exist.status !== 404){
+        ui.textContent = "连接 GitHub 失败(" + exist.status + ")：网络波动或请求受限，请稍后再传";
+        toast("连接 GitHub 失败，稍后再试");
+        return;
+      }
+      // 2) 上传（带 sha=更新；不带 sha=新建）
       const body = {message:'sync: vision board', content};
-      if(exist.status === 200 && exist.data && exist.data.sha) body.sha = exist.data.sha;
+      if(sha) body.sha = sha;
       up = await syncGh('/repos/'+SYNC_OWNER+'/'+SYNC_REPO+'/contents/'+SYNC_PATH,
         {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)}, token);
       if(up.status !== 422) break;
+      // 3) 422 = 版本冲突/版本号缺失 → 下一轮重新拿最新版本号
     }
     if(up.status === 200 || up.status === 201){
       setSyncTime(Date.now());
