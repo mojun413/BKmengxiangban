@@ -748,7 +748,7 @@ input[type="time"]::-webkit-calendar-picker-indicator{opacity:.5}
       <footer class="closing">
         <p class="closing-line" id="closingLine"></p>
         <p class="closing-sub" id="closingSub"></p>
-        <p class="closing-hint">v21 · 数据保存在你的设备上 · 底部「设置」可编辑与备份 ✦</p>
+        <p class="closing-hint">v22 · 数据保存在你的设备上 · 底部「设置」可编辑与备份 ✦</p>
       </footer>
     </section>
 
@@ -1106,7 +1106,15 @@ function load(){
         if(old){ raw = old; localStorage.setItem(LS_KEY, old); }
       }catch(e){}
     }
-    if(!raw) return demoState();
+    if(!raw){
+      // 主数据缺失时，仍用独立配置（wb_cfg_v1）恢复名字/年份/主题，防「刷新后名字初始化」
+      let c = null;
+      try{ c = JSON.parse(localStorage.getItem('wb_cfg_v1') || "null"); }catch(e){}
+      if(c && (c.name || c.yearTitle || c.theme)){
+        return Object.assign(demoState(), { name: c.name || "我", yearTitle: c.yearTitle || "", theme: c.theme || "auto", tab: "vision" });
+      }
+      return demoState();
+    }
     const p = JSON.parse(raw);
     const d = demoState();
     const dreams = Array.isArray(p.dreams) && p.dreams.length ? p.dreams : d.dreams;
@@ -1828,6 +1836,12 @@ function bindSettingsAutoSave(){
   let t = null;
   // 输入即存（200ms 防抖，几乎即时），刷新/切走都不丢
   v.addEventListener("input", () => {
+    // 名字/年份：输入即写入独立小存储（CFG_KEY），刷新瞬间也不丢；大 state 仍防抖保存
+    const nv = $("fName").value.trim() || "我";
+    state.name = nv;
+    const hnEl = $("heroName"); if(hnEl) hnEl.textContent = nv;
+    state.yearTitle = ($("fYear").value || String(new Date().getFullYear())).slice(0,8);
+    saveCfg();
     clearTimeout(t);
     t = setTimeout(() => { collectEdit(); save(); flashSaved(); }, 200);
   });
@@ -1837,6 +1851,9 @@ function bindSettingsAutoSave(){
   if(rmb){ rmb.addEventListener("change", () => { if(!rmb.checked) removeSyncPass(); }); }
 }
 window.addEventListener("beforeunload", () => {
+  try{ if(state && state.tab === "settings"){ collectEdit(); save(); } }catch(e){}
+});
+window.addEventListener("pagehide", () => {
   try{ if(state && state.tab === "settings"){ collectEdit(); save(); } }catch(e){}
 });
 document.addEventListener("visibilitychange", () => {
