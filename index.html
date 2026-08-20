@@ -41,7 +41,7 @@
   --line:#E2D7BE; --line2:#D6C9AC;
   --accent:#BC5B3A; --accent-deep:#A34B2E;
   --green:#74875A; --gold:#B98A2F; --blue:#6E87A0; --rose:#C08787;
-  --shadow:0 2px 4px rgba(71,58,38,.06), 0 10px 28px rgba(71,58,38,.10);
+  --shadow:0 2px 5px rgba(71,58,38,.10), 0 12px 26px rgba(71,58,38,.14), 0 26px 52px rgba(71,58,38,.13);
   --shadow-sm:0 1px 2px rgba(71,58,38,.06), 0 5px 14px rgba(71,58,38,.08);
   --tape:rgba(239,226,190,.55);
   --sel:rgba(188,91,58,.22);
@@ -54,7 +54,7 @@
   --line:#3C3427; --line2:#4A4030;
   --accent:#D4714C; --accent-deep:#E07F58;
   --green:#93A77A; --gold:#D9AE55; --blue:#8FA9BD; --rose:#D0A3A3;
-  --shadow:0 2px 4px rgba(0,0,0,.28), 0 12px 30px rgba(0,0,0,.34);
+  --shadow:0 2px 5px rgba(0,0,0,.34), 0 12px 28px rgba(0,0,0,.42), 0 26px 54px rgba(0,0,0,.38);
   --shadow-sm:0 1px 2px rgba(0,0,0,.26), 0 5px 14px rgba(0,0,0,.26);
   --tape:rgba(61,52,37,.5);
   --sel:rgba(212,113,76,.30);
@@ -202,18 +202,20 @@ input[type="time"]::-webkit-calendar-picker-indicator{opacity:.5}
 .backup-hint button{color:var(--ink2);font-size:13px;min-width:44px;min-height:44px}
 
 /* ============ ② 满屏 Collage（拍立得世界） ============ */
-.collage{margin:26px 0 4px;display:grid;grid-template-columns:repeat(var(--vcols,2),minmax(0,1fr));gap:13px;align-items:start}
+.collage{margin:26px 0 4px;position:relative}
 .collage .tile{-webkit-user-drag:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
 .collage .tile img{pointer-events:none}
 .tile{
   display:block;width:100%;margin-bottom:0;
   background:var(--card);border-radius:var(--vrad,4px);overflow:hidden;
+  border:1px solid color-mix(in srgb, #fff 62%, transparent);
   box-shadow:var(--shadow);
   position:relative;transform:rotate(var(--rot,0deg));
   transition:transform .22s cubic-bezier(.22,.8,.3,1), box-shadow .22s;
   text-align:left;padding:4px 4px 4px;cursor:pointer;
 }
 .tile:active{transform:rotate(0deg) scale(.975)}
+[data-theme="dark"] .tile{border-color:rgba(255,255,255,.07)}
 .tile.tap-hint::after{
   content:"轻点查看 · 双击换图";position:absolute;left:50%;bottom:42%;transform:translateX(-50%);
   font-size:10.5px;letter-spacing:.05em;color:rgba(255,255,255,.85);
@@ -230,6 +232,7 @@ input[type="time"]::-webkit-calendar-picker-indicator{opacity:.5}
   pointer-events:none;
 }
 .tile-photo{position:relative;background:var(--card2);overflow:hidden;border-radius:2px}
+.tile-photo::after{content:"";position:absolute;inset:0;border-radius:2px;pointer-events:none;box-shadow:inset 0 1px 3px rgba(0,0,0,.22), inset 0 0 0 1px rgba(255,255,255,.07)}
 .tile-photo img{width:100%;height:100%;object-fit:cover;display:block;animation:tileIn .45s ease-out both}
 @keyframes tileIn{from{opacity:.55;transform:scale(1.03)}to{opacity:1;transform:none}}
 .tile-fallback{aspect-ratio:3/4;display:flex;align-items:center;justify-content:center}
@@ -662,12 +665,10 @@ input[type="time"]::-webkit-calendar-picker-indicator{opacity:.5}
 .ring .ring-sub{font-family:inherit;fill:var(--ink2)}
 
 @media (min-width:600px){
-  .collage{grid-template-columns:repeat(3,minmax(0,1fr));gap:15px}
   .app{padding-top:10px}
 }
 @media (min-width:960px){
   .app{max-width:760px}
-  .collage{grid-template-columns:repeat(3,minmax(0,1fr))}
   .hero-strength{font-size:18.5px}
   .year-stamp{font-size:clamp(72px, 10vw, 96px)}
   .collage .tile:hover{
@@ -749,7 +750,7 @@ input[type="time"]::-webkit-calendar-picker-indicator{opacity:.5}
       <footer class="closing">
         <p class="closing-line" id="closingLine"></p>
         <p class="closing-sub" id="closingSub"></p>
-        <p class="closing-hint">v27 · 数据保存在你的设备上 · 底部「设置」可编辑与备份 ✦</p>
+        <p class="closing-hint">v28 · 数据保存在你的设备上 · 底部「设置」可编辑与备份 ✦</p>
       </footer>
     </section>
 
@@ -1307,7 +1308,35 @@ function renderCollage(){
     <div class="tile-text size-normal cink">＋ 新文字卡<br><span style="font-size:11px;font-weight:400;letter-spacing:.05em">双击卡片可编辑</span></div>
   </div>`;
   $("collage").innerHTML = html;
+  layoutMasonry();
 }
+/* ===== JS 瀑布流：每列高度独立（最矮列优先），顺序从左到右逐张落下 ===== */
+function layoutMasonry(){
+  const c = $("collage"); if(!c || !c.offsetWidth) return;
+  const tiles = Array.from(c.querySelectorAll(".tile")); if(!tiles.length) return;
+  const cols = window.innerWidth >= 600 ? 3 : ((state.viewOpts && state.viewOpts.cols) || 2);
+  const gap = window.innerWidth >= 600 ? 15 : 13;
+  const cw = c.clientWidth || c.offsetWidth;
+  const cardW = Math.max(40, (cw - gap * (cols - 1)) / cols);
+  // 定宽 + 流式测量高度（同一帧内同步完成，用户无感知闪烁）
+  tiles.forEach(t => { t.style.position = "static"; t.style.width = cardW + "px"; t.style.left = ""; t.style.top = ""; });
+  const heights = tiles.map(t => t.offsetHeight);
+  const colH = new Array(cols).fill(0);
+  tiles.forEach((t, i) => {
+    let ci = 0;
+    for(let j = 1; j < cols; j++){ if(colH[j] < colH[ci]) ci = j; }
+    t.style.position = "absolute";
+    t.style.left = (ci * (cardW + gap)) + "px";
+    t.style.top = colH[ci] + "px";
+    colH[ci] += heights[i] + gap;
+  });
+  c.style.height = (Math.max.apply(null, colH) - gap) + "px";
+}
+let msResizeTimer = null;
+window.addEventListener("resize", () => {
+  clearTimeout(msResizeTimer);
+  msResizeTimer = setTimeout(() => { try{ layoutMasonry(); }catch(e){} }, 150);
+});
 let tileTapTimer = null, holdPinned = false;
 function tapTile(el){
   if(holdPinned){ holdPinned = false; return; }
