@@ -1094,7 +1094,14 @@ function blankState(){
 let state = load();
 function load(){
   try{
-    const raw = localStorage.getItem(LS_KEY);
+    let raw = localStorage.getItem(LS_KEY);
+    if(!raw){
+      // 旧版本数据 key（wb_dream_board_v1）迁移，避免老数据丢失
+      try{
+        const old = localStorage.getItem('wb_dream_board_v1');
+        if(old){ raw = old; localStorage.setItem(LS_KEY, old); }
+      }catch(e){}
+    }
     if(!raw) return demoState();
     const p = JSON.parse(raw);
     const d = demoState();
@@ -1124,7 +1131,11 @@ function load(){
     };
   }catch(e){ return demoState(); }
 }
-function save(){ localStorage.setItem(LS_KEY, JSON.stringify(state)); if(typeof scheduleCloudPush === 'function') scheduleCloudPush(); }
+function save(){
+  localStorage.setItem(LS_KEY, JSON.stringify(state));
+  try{ localStorage.setItem('wb_local_saved', String(Date.now())); }catch(e){}
+  if(typeof scheduleCloudPush === 'function') scheduleCloudPush();
+}
 
 const $ = id => document.getElementById(id);
 function fmtNum(n){ return Number(n||0).toLocaleString("zh-CN"); }
@@ -2108,7 +2119,9 @@ async function syncAutoPull(){
     if(got.status !== 200 || !got.data || !got.data.length) return;
     const remoteTs = new Date(got.data[0].updated_at).getTime();
     const lastLocal = +(localStorage.getItem(SYNC_REMOTE_KEY) || 0);
-    if(remoteTs > lastLocal){ await syncDownload(true); }
+    const localSaved = +(localStorage.getItem('wb_local_saved') || 0);
+    // 只有云端比本地最后一次改动还新才恢复；本地刚改过（未上传）时等待自动上传，防止覆盖
+    if(remoteTs > lastLocal && remoteTs > localSaved){ await syncDownload(true); }
   }catch(e){}
 }
 function syncInit(){
