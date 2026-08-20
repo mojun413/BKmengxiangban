@@ -745,7 +745,7 @@ input[type="time"]::-webkit-calendar-picker-indicator{opacity:.5}
       <footer class="closing">
         <p class="closing-line" id="closingLine"></p>
         <p class="closing-sub" id="closingSub"></p>
-        <p class="closing-hint">数据保存在你的设备上 · 底部「设置」可编辑与备份 ✦</p>
+        <p class="closing-hint">v18 · 数据保存在你的设备上 · 底部「设置」可编辑与备份 ✦</p>
       </footer>
     </section>
 
@@ -1113,9 +1113,12 @@ function load(){
         x.images = [x.img];
       }
     });
+    let cfg = null;
+    try{ cfg = JSON.parse(localStorage.getItem('wb_cfg_v1') || "null"); }catch(e){}
+    cfg = cfg || {};
     return {
-      name: p.name || d.name, theme: p.theme || "auto", tab: p.tab || "vision",
-      yearTitle: p.yearTitle || d.yearTitle,
+      name: cfg.name || p.name || d.name, theme: cfg.theme || p.theme || "auto", tab: p.tab || "vision",
+      yearTitle: cfg.yearTitle || p.yearTitle || d.yearTitle,
       userStrengths: p.userStrengths || [], userClosing: p.userClosing || [],
       dreams,
       cards: Array.isArray(p.cards) ? p.cards : d.cards,
@@ -1131,9 +1134,19 @@ function load(){
     };
   }catch(e){ return demoState(); }
 }
+const CFG_KEY = 'wb_cfg_v1';
+function saveCfg(){
+  try{ localStorage.setItem(CFG_KEY, JSON.stringify({name: state.name, yearTitle: state.yearTitle, theme: state.theme||"auto"})); }catch(e){}
+}
 function save(){
-  localStorage.setItem(LS_KEY, JSON.stringify(state));
+  try{
+    localStorage.setItem(LS_KEY, JSON.stringify(state));
+  }catch(e){
+    // 配额超限（照片太多）：至少保证关键字段已存，明确提示用户
+    toast("存储空间不足：照片太多，请在灯箱里删除一些照片");
+  }
   try{ localStorage.setItem('wb_local_saved', String(Date.now())); }catch(e){}
+  saveCfg();
   if(typeof scheduleCloudPush === 'function') scheduleCloudPush();
 }
 
@@ -1922,12 +1935,12 @@ function uploadImg(i){
     reader.onload = ev => {
       const img = new Image();
       img.onload = () => {
-        const scale = Math.min(1, 800/img.width);
+        const scale = Math.min(1, 520/img.width);
         const c = document.createElement("canvas");
         c.width = Math.max(1, Math.round(img.width*scale));
         c.height = Math.max(1, Math.round(img.height*scale));
         c.getContext("2d").drawImage(img,0,0,c.width,c.height);
-        const dataUrl = c.toDataURL("image/jpeg", 0.82);
+        const dataUrl = c.toDataURL("image/jpeg", 0.72);
         d.images.push(dataUrl);
         if(!d.img) d.img = dataUrl;
         save(); if(typeof buildEditForm==="function") buildEditForm(); renderAll();
