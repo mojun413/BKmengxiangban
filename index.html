@@ -1168,6 +1168,8 @@ function load(){
       } else if(x.img && !x.images.length){
         x.images = [x.img];
       }
+      if(!Array.isArray(x.hdKeys) || x.hdKeys.length !== x.images.length) x.hdKeys = x.images.map(() => "");
+      if(!Array.isArray(x.hdUrls) || x.hdUrls.length !== x.images.length) x.hdUrls = x.images.map(() => "");
     });
     let cfg = null;
     try{ cfg = JSON.parse(localStorage.getItem('wb_cfg_v1') || "null"); }catch(e){}
@@ -1215,6 +1217,88 @@ function save(){
   }
   try{ localStorage.setItem('wb_local_saved', String(Date.now())); }catch(e){}
   saveCfg();
+}
+
+/* ===== 高清图仓库：IndexedDB（GB 级，专存高清原图；低清缩略图仍走 localStorage 5MB 配额） ===== */
+const HD_DB = "wb_vision_hd", HD_STORE = "hd_imgs";
+let _idb = null;
+function idbOpen(){
+  return new Promise((res, rej) => {
+    if(_idb) return res(_idb);
+    try{
+      const rq = indexedDB.open(HD_DB, 1);
+      rq.onupgradeneeded = () => { const db = rq.result; if(!db.objectStoreNames.contains(HD_STORE)) db.createObjectStore(HD_STORE); };
+      rq.onsuccess = () => { _idb = rq.result; res(_idb); };
+      rq.onerror = () => rej(rq.error);
+    }catch(e){ rej(e); }
+  });
+}
+async function idbSet(k, v){
+  try{
+    const db = await idbOpen();
+    return await new Promise((res, rej) => {
+      const tx = db.transaction(HD_STORE, "readwrite");
+      tx.objectStore(HD_STORE).put(v, k);
+      tx.oncomplete = () => res(true);
+      tx.onerror = () => rej(tx.error);
+    });
+  }catch(e){ return false; }
+}
+async function idbGet(k){
+  if(!k) return null;
+  try{
+    const db = await idbOpen();
+    return await new Promise((res, rej) => {
+      const rq = db.transaction(HD_STORE, "readonly").objectStore(HD_STORE).get(k);
+      rq.onsuccess = () => res(rq.result || null);
+      rq.onerror = () => rej(rq.error);
+    });
+  }catch(e){ return null; }
+}
+async function idbDel(k){
+  if(!k) return;
+  try{
+    const db = await idbOpen();
+    await new Promise(res => {
+      const tx = db.transaction(HD_STORE, "readwrite");
+      tx.objectStore(HD_STORE).delete(k);
+      tx.oncomplete = () => res(true);
+    });
+  }catch(e){}
+}
+/* ===== 高清图云端仓库：Supabase Storage（public bucket「vision-hd」），跨设备也能看高清 ===== */
+const HD_BUCKET = "vision-hd";
+function dataUrlToBlob(dataUrl){
+  const m = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+  if(!m) return null;
+  const bin = atob(m[2]);
+  const arr = new Uint8Array(bin.length);
+  for(let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  return new Blob([arr], {type: m[1]});
+}
+async function stUpload(dataUrl, fileName){
+  const blob = dataUrlToBlob(dataUrl);
+  if(!blob) return "";
+  try{
+    const res = await fetch(SYNC_URL + '/storage/v1/object/' + HD_BUCKET + '/' + fileName, {
+      method: 'POST',
+      headers: {'apikey': SYNC_ANON, 'Authorization': 'Bearer ' + SYNC_ANON, 'Content-Type': blob.type},
+      body: blob
+    });
+    if(res.ok) return SYNC_URL + '/storage/v1/object/public/' + HD_BUCKET + '/' + fileName;
+    return "";
+  }catch(e){ return ""; }
+}
+async function stDel(hdUrl){
+  if(!hdUrl || hdUrl.indexOf('/' + HD_BUCKET + '/') < 0) return;
+  const fileName = hdUrl.split('/').pop();
+  if(!fileName) return;
+  try{
+    await fetch(SYNC_URL + '/storage/v1/object/' + HD_BUCKET + '/' + fileName, {
+      method: 'DELETE',
+      headers: {'apikey': SYNC_ANON, 'Authorization': 'Bearer ' + SYNC_ANON}
+    });
+  }catch(e){}
 }
 
 const $ = id => document.getElementById(id);
@@ -1497,10 +1581,21 @@ function renderLightbox(){
   const d = state.dreams[lbDi]; if(!d) return;
   const imgs = lbImgs(lbDi);
   const total = imgs.length;
-  // 轮播
-  const trackHtml = imgs.map((src,i)=>`<div><img src="${src}" alt=""></div>`).join("");
+  // 轮播（先显示低清，随后异步换成高清：本机 IndexedDB → 云端 Storage URL）
+  const hdKeys = (Array.isArray(d.hdKeys) && d.hdKeys.length === imgs.length) ? d.hdKeys : imgs.map(() => "");
+  const hdUrls = (Array.isArray(d.hdUrls) && d.hdUrls.length === imgs.length) ? d.hdUrls : imgs.map(() => "");
+  const trackHtml = imgs.map((src,i)=>`<div><img src="${src}" data-hdk="${hdKeys[i]||""}" data-hdu="${hdUrls[i]||""}" alt=""></div>`).join("");
   $("lbTrack").innerHTML = trackHtml;
   $("lbTrack").style.transform = `translateX(-${lbIdx * 100}%)`;
+  $("lbTrack").querySelectorAll("img[data-hdk], img[data-hdu]").forEach(async el => {
+    const k = el.getAttribute("data-hdk");
+    if(k){
+      const hd = await idbGet(k);
+      if(hd && el.isConnected){ el.src = hd; return; }
+    }
+    const u = el.getAttribute("data-hdu");
+    if(u && el.isConnected) el.src = u;
+  });
   // 计数 / 上下张
   $("lbCounter").textContent = total ? (lbIdx+1)+"/"+total : (d.icon ? "插画" : "0/0");
   $("lbPrev").classList.toggle("hide", total <= 1);
@@ -1574,7 +1669,11 @@ function lbNavTo(i){ lbIdx = i; renderLightbox(); }
 function lbRemoveImg(i){
   const d = state.dreams[lbDi]; if(!d || !d.images || !d.images[i]) return;
   if(!confirm("删除这张照片？")) return;
+  if(Array.isArray(d.hdKeys) && d.hdKeys[i]) idbDel(d.hdKeys[i]);
+  if(Array.isArray(d.hdUrls) && d.hdUrls[i]) stDel(d.hdUrls[i]);
   d.images.splice(i,1);
+  if(Array.isArray(d.hdKeys)) d.hdKeys.splice(i,1);
+  if(Array.isArray(d.hdUrls)) d.hdUrls.splice(i,1);
   if(!d.images.length) d.img = null; else d.img = d.images[0];
   lbIdx = Math.min(lbIdx, d.images.length-1);
   save(); buildEditForm && buildEditForm(); renderAll();
@@ -1590,6 +1689,18 @@ function moveImgInArray(arr, from, to){
   if(from === to) return;
   const it = arr.splice(from, 1)[0];
   arr.splice(to, 0, it);
+}
+function moveDreamImg(d, from, to){
+  if(from === to) return;
+  moveImgInArray(d.images, from, to);
+  if(Array.isArray(d.hdKeys)){
+    const k = d.hdKeys.splice(from, 1)[0];
+    d.hdKeys.splice(to, 0, k);
+  }
+  if(Array.isArray(d.hdUrls)){
+    const u = d.hdUrls.splice(from, 1)[0];
+    d.hdUrls.splice(to, 0, u);
+  }
 }
 function syncImgState(di){
   const d = state.dreams[di]; if(!d) return;
@@ -1613,7 +1724,7 @@ function bindThumbDrag(){
       const from = +e.dataTransfer.getData("text/plain");
       const to = +t.dataset.i;
       const d = state.dreams[lbDi]; if(!d || !Array.isArray(d.images)) return;
-      moveImgInArray(d.images, from, to);
+      moveDreamImg(d, from, to);
       syncImgState(lbDi); save(); renderAll(); renderLightbox();
       toast("已调整顺序 ✦");
     };
@@ -1669,7 +1780,7 @@ function tdEnd(e){
       const step = tDrag.w + 6;
       let to = Math.round((tDrag.x - rect.left) / step);
       to = Math.max(0, Math.min(d.images.length - 1, to));
-      moveImgInArray(d.images, tDrag.i, to);
+      moveDreamImg(d, tDrag.i, to);
       syncImgState(lbDi);
       save(); renderAll(); renderLightbox();
       toast(tDrag.i === to ? "顺序没变" : "已调整顺序 ✦");
@@ -1681,7 +1792,7 @@ function tdEnd(e){
 }
 function lbSetCover(i){
   const d = state.dreams[lbDi]; if(!d || !Array.isArray(d.images) || !d.images[i]) return;
-  moveImgInArray(d.images, i, 0);
+  moveDreamImg(d, i, 0);
   syncImgState(lbDi); lbIdx = 0;
   save(); renderAll(); renderLightbox();
   toast("已设为封面 ✦");
@@ -2201,6 +2312,9 @@ function addDream(){
 }
 function removeDream(di){
   if(!confirm("删除这张愿景卡？\n（它的照片与进度会一起删除）")) return;
+  const d0 = state.dreams[di];
+  if(d0 && Array.isArray(d0.hdKeys)) d0.hdKeys.forEach(k => { if(k) idbDel(k); });
+  if(d0 && Array.isArray(d0.hdUrls)) d0.hdUrls.forEach(u => { if(u) stDel(u); });
   state.dreams.splice(di, 1);
   save(); closeLightbox(); renderAll();
   toast("已删除愿景");
@@ -2248,15 +2362,26 @@ function uploadImg(i){
     const reader = new FileReader();
     reader.onload = ev => {
       const img = new Image();
-      img.onload = () => {
-        const scale = Math.min(1, 520/img.width);
-        const c = document.createElement("canvas");
-        c.width = Math.max(1, Math.round(img.width*scale));
-        c.height = Math.max(1, Math.round(img.height*scale));
-        c.getContext("2d").drawImage(img,0,0,c.width,c.height);
-        const dataUrl = c.toDataURL("image/jpeg", 0.72);
-        d.images.push(dataUrl);
-        if(!d.img) d.img = dataUrl;
+      img.onload = async () => {
+        const mk = (maxW, q) => {
+          const scale = Math.min(1, maxW / img.width);
+          const c = document.createElement("canvas");
+          c.width = Math.max(1, Math.round(img.width * scale));
+          c.height = Math.max(1, Math.round(img.height * scale));
+          c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+          return c.toDataURL("image/jpeg", q);
+        };
+        const thumb = mk(480, 0.7);            // 低清：网格 + 云同步用，塞进 5MB
+        const hd = mk(1920, 0.88);             // 高清：灯箱/分享长图用
+        const hdKey = "hd_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8);
+        idbSet(hdKey, hd);                     // ① 本机 IndexedDB（离线也能看高清）
+        const hdUrl = await stUpload(hd, hdKey + ".jpg"); // ② 云端 Storage（跨设备看高清；失败留空走本机）
+        if(!Array.isArray(d.hdKeys) || d.hdKeys.length !== d.images.length) d.hdKeys = d.images.map(() => "");
+        if(!Array.isArray(d.hdUrls) || d.hdUrls.length !== d.images.length) d.hdUrls = d.images.map(() => "");
+        d.images.push(thumb);
+        d.hdKeys.push(hdKey);
+        d.hdUrls.push(hdUrl);
+        if(!d.img) d.img = thumb;
         save(); if(typeof buildEditForm==="function") buildEditForm(); renderAll();
         if($("lightbox").classList.contains("open") && lbDi === i){ lbIdx = d.images.length - 1; renderLightbox(); }
         toast("已添加 ✦");
@@ -2273,8 +2398,12 @@ function removeImg(i){
   if(!Array.isArray(d.images)) d.images = [];
   if(!d.images.length){ toast("这张卡没有照片"); return; }
   if(!confirm("删除这张愿景卡上的所有照片？（会保留手绘插画占位）")) return;
+  if(Array.isArray(d.hdKeys)){ d.hdKeys.forEach(k => { if(k) idbDel(k); }); }
+  if(Array.isArray(d.hdUrls)){ d.hdUrls.forEach(u => { if(u) stDel(u); }); }
   d.images = [];
   d.img = null;
+  d.hdKeys = [];
+  d.hdUrls = [];
   save(); buildEditForm(); renderAll();
   toast("已清空该卡照片");
 }
@@ -2336,6 +2465,7 @@ async function syncUpload(quiet){
     // 图片压缩为低清副本（同步体积小，本地高清图不受影响）
     const syncState = JSON.parse(JSON.stringify(state));
     for(const d of syncState.dreams){
+      delete d.hdKeys; // 高清 key 只指向本机 IndexedDB，不随云同步
       if(Array.isArray(d.images) && d.images.length){
         const imgs = [];
         for(const s of d.images){ imgs.push(await compressImg(s, 420, 0.62)); }
@@ -2421,6 +2551,8 @@ async function syncDownload(quiet){
       (state.dreams||[]).forEach(x => {
         if(!Array.isArray(x.images)) x.images = x.img ? [x.img] : [];
         if(x.images.length && !x.img) x.img = x.images[0];
+        if(!Array.isArray(x.hdKeys) || x.hdKeys.length !== x.images.length) x.hdKeys = x.images.map(() => "");
+        if(!Array.isArray(x.hdUrls) || x.hdUrls.length !== x.images.length) x.hdUrls = x.images.map(() => "");
       });
       const serverTs = new Date(row.updated_at).getTime();
       setSyncTime(serverTs);
@@ -2527,7 +2659,10 @@ async function drawBoardCanvas(){
     ctx.clip();
     if(imgs.length){
       try{
-        const img = await loadImg(imgs[0]);
+        let src = imgs[0];
+        if(Array.isArray(d.hdKeys) && d.hdKeys[0]){ const hd = await idbGet(d.hdKeys[0]); if(hd) src = hd; }
+        else if(Array.isArray(d.hdUrls) && d.hdUrls[0]) src = d.hdUrls[0];
+        const img = await loadImg(src);
         drawCover(ctx, img, x + edge, y + edge, tileW - edge*2, imgH);
       }catch(e){}
     }else{
