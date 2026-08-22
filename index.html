@@ -1439,7 +1439,7 @@ function renderCollage(){
   layoutMasonry();
 }
 /* ===== 封面自动随机轮换：愿景板页面上，每张多图卡片的主图每隔几秒随机换一张（纯视觉，不改数据） ===== */
-const COVER_ROTATE_MS = 600000; // 10 分钟轮换一次
+const COVER_ROTATE_MS = 60000; // 1 分钟轮换一次
 let coverRotateTimer = null;
 function startCoverRotate(){
   stopCoverRotate();
